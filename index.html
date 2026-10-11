@@ -159,6 +159,9 @@ details.set[open] summary::after{content:"－"}
 .qchips .chip{font-size:13px;padding:4px 10px}
 .hint{font-size:13px;color:var(--ink2);background:var(--card2);border-radius:10px;padding:10px 12px;margin-top:10px}
 .evlist .row{cursor:pointer}
+.sync{font-size:12px;color:var(--ink3);display:block;font-weight:400;margin-top:1px;letter-spacing:0}
+.sync.ok{color:var(--accent)}
+.acct{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px}
 .hide{display:none!important}
 </style>
 </head>
@@ -201,7 +204,87 @@ function normalize(o){
   return o;
 }
 function load(){ try{ var s=localStorage.getItem(KEY); return s ? normalize(JSON.parse(s)) : null; }catch(e){ return null; } }
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ toast("이 브라우저에서는 저장이 안 돼요"); } }
+function saveLocal(){ try{ if(S) localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+function save(){ saveLocal(); pushCloud(); }
+
+/* ---------- 가족 공유 (Firebase) ---------- */
+var FB_VER = "10.12.2";
+var FB_CONFIG = {
+  apiKey: "AIzaSyBuVejjfhkQnYflFmZTbu-ObVDDenEKcaU",
+  authDomain: "family-schedule-93185.firebaseapp.com",
+  projectId: "family-schedule-93185",
+  storageBucket: "family-schedule-93185.firebasestorage.app",
+  messagingSenderId: "243482715052",
+  appId: "1:243482715052:web:b0f85be7838af7d5e41009"
+};
+var cloud = { status:"loading", user:null, ref:null, mod:null, lastRemote:null, pending:null, timer:null, unsub:null };
+function isBusy(){ var a=document.activeElement; return isModalOpen() || !!(a && /INPUT|TEXTAREA|SELECT/.test(a.tagName)); }
+function pushCloud(){
+  if(!cloud.ref || !cloud.user || (cloud.status!=="ok" && cloud.status!=="empty")) return;
+  clearTimeout(cloud.timer); cloud.timer=setTimeout(doPush, 300);
+}
+function doPush(){
+  if(!S || !cloud.ref) return;
+  var json=JSON.stringify(S);
+  if(json===cloud.lastRemote) return;
+  cloud.mod.setDoc(cloud.ref, {json:json, updatedAt:cloud.mod.serverTimestamp(), updatedBy:(cloud.user&&cloud.user.email)||""})
+    .then(function(){ cloud.lastRemote=json; if(cloud.status==="empty"){ cloud.status="ok"; updateSync(); } })
+    .catch(function(e){
+      if(e && e.code==="permission-denied"){
+        toast("보기 전용 계정이라 저장되지 않았어요");
+        if(cloud.lastRemote) applyJson(cloud.lastRemote, true);
+      } else toast("저장하지 못했어요. 인터넷 연결을 확인해 주세요");
+    });
+}
+function applyJson(json, force){
+  cloud.pending=null;
+  if(!force && S && json===JSON.stringify(S)) return;
+  try{ S=normalize(JSON.parse(json)); }catch(e){ return; }
+  saveLocal(); render(true);
+}
+function onRemote(snap){
+  if(snap.metadata && snap.metadata.hasPendingWrites) return;
+  var was=cloud.status;
+  if(!snap.exists()){
+    cloud.status="empty";
+    if(S){ doPush(); toast("이 폰의 일정을 가족 공유로 옮겼어요"); }
+    render(); return;
+  }
+  var json=(snap.data()||{}).json;
+  cloud.status="ok"; cloud.lastRemote=json||null;
+  if(!json){ render(); return; }
+  if(S && json===JSON.stringify(S)){ if(was!=="ok") render(true); return; }
+  if(was==="ok" && isBusy()){ cloud.pending=json; return; }
+  applyJson(json);
+}
+function startCloud(){
+  var base="https://www.gstatic.com/firebasejs/"+FB_VER+"/";
+  Promise.all([import(base+"firebase-app.js"), import(base+"firebase-auth.js"), import(base+"firebase-firestore.js")]).then(function(m){
+    var A=m[0], U=m[1], F=m[2];
+    var app=A.initializeApp(FB_CONFIG), auth=U.getAuth(app), db=F.getFirestore(app);
+    cloud.mod={setDoc:F.setDoc, serverTimestamp:F.serverTimestamp};
+    cloud.ref=F.doc(db, "families", "main");
+    cloud.signIn=function(){
+      var pv=new U.GoogleAuthProvider(); pv.setCustomParameters({prompt:"select_account"});
+      return U.signInWithPopup(auth, pv).catch(function(e){
+        var c=(e&&e.code)||"";
+        if(c==="auth/popup-blocked" || c==="auth/operation-not-supported-in-this-environment") return U.signInWithRedirect(auth, pv);
+        if(c!=="auth/popup-closed-by-user" && c!=="auth/cancelled-popup-request") toast("로그인하지 못했어요. 다시 시도해 주세요");
+      });
+    };
+    cloud.signOut=function(){ return U.signOut(auth); };
+    U.onAuthStateChanged(auth, function(user){
+      if(cloud.unsub){ cloud.unsub(); cloud.unsub=null; }
+      cloud.user=user; cloud.lastRemote=null; cloud.pending=null;
+      if(!user){ cloud.status="out"; render(); return; }
+      cloud.status="loading"; render(true);
+      cloud.unsub=F.onSnapshot(cloud.ref, onRemote, function(err){
+        cloud.status=(err && err.code==="permission-denied") ? "denied" : "error"; render();
+      });
+    });
+  }).catch(function(){ cloud.status="noload"; render(); });
+}
+setInterval(function(){ if(cloud.pending && !isBusy()) applyJson(cloud.pending); }, 1500);
 
 var S = load();
 var view = { tab:"today", day:todayStr(), month:todayStr().slice(0,7), ttKid:null, ttDay:1, evWho:"all", evDate:null, weekBase:null };
@@ -318,7 +401,7 @@ function renderSetup(){
    '<header class="top"><h1>가족 일정</h1></header>'+
    '<div class="card">'+
      '<div style="font-size:17px;font-weight:700;margin-bottom:4px">처음 시작하기</div>'+
-     '<div class="muted small">받은 시간표 링크를 누르면 바로 시작돼요. 코드만 있다면 아래에 붙여넣어 주세요. 일정은 이 폰에만 저장되고, 인터넷 어디에도 올라가지 않아요.</div>'+
+     '<div class="muted small">아직 가족 일정이 비어 있어요. 받은 설정 코드나 시간표 링크를 붙여넣으면 가족 모두에게 같은 시간표가 들어가요.</div>'+
      '<label class="f" for="code">설정 코드</label>'+
      '<textarea id="code" placeholder="FAM1:로 시작하는 코드 또는 링크"></textarea>'+
      '<div class="err" id="err"></div>'+
@@ -338,9 +421,38 @@ function renderSetup(){
 }
 
 /* ---------- 공통 ---------- */
-function header(){ return '<header class="top"><h1>'+esc(S.title)+'</h1><button class="iconbtn" id="gear" aria-label="설정">⚙️</button></header>'; }
+function syncLabel(){
+  var st=cloud.status;
+  if(st==="ok"||st==="empty") return '<span class="sync ok" id="sync">● 가족과 함께 보는 중</span>';
+  if(st==="loading") return '<span class="sync" id="sync">연결하는 중…</span>';
+  return '<span class="sync" id="sync">연결 안 됨 · 이 폰에 저장된 일정 표시</span>';
+}
+function updateSync(){ var el=$("sync"); if(el) el.outerHTML=syncLabel(); }
+function header(){ return '<header class="top"><h1>'+esc(S.title)+syncLabel()+'</h1><button class="iconbtn" id="gear" aria-label="설정">⚙️</button></header>'; }
 function bindHeader(){ var g=$("gear"); if(g) g.onclick=function(){ view.tab="settings"; render(); }; }
+function gateScreen(title, body, buttons){
+  $("tabs").classList.add("hide");
+  $("app").innerHTML='<header class="top"><h1>가족 일정</h1></header><div class="card"><div style="font-size:17px;font-weight:700;margin-bottom:6px">'+title+'</div><div class="muted small">'+body+'</div>'+(buttons||'')+'</div>';
+}
+var IN_KAKAO=/KAKAOTALK/i.test(navigator.userAgent);
+function renderLogin(){
+  var kakao = IN_KAKAO ? '<div class="hint">카카오톡 안에서는 구글 로그인이 막혀 있어요. 아래 버튼으로 크롬에서 열어 주세요.</div><button class="btn pri wide" id="ext">크롬에서 열기</button>' : '';
+  gateScreen("가족만 볼 수 있어요", "등록된 가족 구글 계정으로 로그인하면 우리 가족 일정이 보여요. 처음 한 번만 하면 돼요.",
+    kakao+'<button class="btn '+(IN_KAKAO?'':'pri ')+'wide" id="login">Google로 로그인</button>');
+  var x=$("ext"); if(x) x.onclick=function(){ location.href="kakaotalk://web/openExternal?url="+encodeURIComponent(location.href); };
+  $("login").onclick=function(){ if(cloud.signIn) cloud.signIn(); };
+}
+function renderDenied(){
+  var em=(cloud.user&&cloud.user.email)||"";
+  gateScreen("등록되지 않은 계정이에요", esc(em)+" 계정은 아직 가족 목록에 없어요. 기석님께 이 주소를 알려주시거나 다른 계정으로 로그인해 주세요.",
+    '<button class="btn pri wide" id="other">다른 계정으로 로그인</button>');
+  $("other").onclick=function(){ cloud.signOut().then(function(){ cloud.signIn(); }); };
+}
 function render(keepScroll){
+  if(cloud.status==="out"){ renderLogin(); return; }
+  if(cloud.status==="denied"){ renderDenied(); return; }
+  if(!S && (cloud.status==="loading")){ gateScreen("불러오는 중…", "잠시만 기다려 주세요."); return; }
+  if(!S && (cloud.status==="noload"||cloud.status==="error")){ gateScreen("연결하지 못했어요", "인터넷 연결을 확인하고 다시 열어 주세요.", '<button class="btn wide" id="retry">다시 시도</button>'); $("retry").onclick=function(){ location.reload(); }; return; }
   if(!S){ renderSetup(); return; }
   var sy=window.scrollY;
   document.title=S.title;
@@ -744,15 +856,18 @@ function renderSettings(){
   });
   h+='<div class="err" id="nerr"></div><button class="btn wide" id="kadd">＋ 아이 추가</button><button class="btn pri wide" id="nsave">저장</button></div></details>';
 
-  h+='<details class="set"><summary>백업 · 다른 폰으로 옮기기</summary><div style="margin-top:6px">'+
-     '<div class="note" style="margin-top:0">링크를 복사해 다른 폰에서 누르면 지금 일정이 그대로 옮겨져요. 아이들 일정이 담겨 있으니 가족에게만 개인 메시지로 보내 주세요.</div>'+
+  h+='<details class="set"><summary>계정</summary><div style="margin-top:8px"><div class="acct"><span>'+esc((cloud.user&&cloud.user.email)||"로그인 안 됨")+'</span></div>'+
+     '<div class="note">가족 모두 같은 일정을 보고, 누가 고쳐도 몇 초 안에 모두의 폰에 반영돼요.</div>'+
+     '<button class="btn wide" id="logout">로그아웃</button></div></details>';
+
+  h+='<details class="set"><summary>백업</summary><div style="margin-top:6px">'+
+     '<div class="note" style="margin-top:0">설정 코드는 지금 일정 전체의 사본이에요. 가끔 복사해서 개인 메모에 보관해 두면, 실수로 지웠을 때 되돌릴 수 있어요.</div>'+
      '<button class="btn pri wide" id="expl">시간표 링크 복사</button>'+
      '<button class="btn wide" id="exp">설정 코드만 복사</button>'+
      '<label class="f" for="imp">코드·링크로 덮어쓰기</label><textarea id="imp" placeholder="FAM1:로 시작하는 코드 또는 링크"></textarea><div class="err" id="imperr"></div>'+
-     '<button class="btn wide" id="impgo">불러오기 (지금 일정은 사라져요)</button>'+
-     '<button class="btn danger wide" id="reset">이 폰의 모든 일정 지우기</button></div></details>';
+     '<button class="btn wide" id="impgo">불러오기 (가족 일정 전체가 바뀌어요)</button></div></details>';
 
-  h+='<div class="note">일정은 이 폰의 브라우저에만 저장돼요. 브라우저 기록을 지우면 함께 사라지니, 가끔 시간표 링크를 복사해 두세요.</div>';
+  h+='<div class="note">일정은 등록된 가족 계정만 볼 수 있는 저장소에 보관돼요.</div>';
 
   $("tabs").classList.add("hide");
   $("app").innerHTML=h;
@@ -796,10 +911,11 @@ function renderSettings(){
     var v=$("imp").value, er=$("imperr");
     if(!v.trim()){ er.textContent="코드를 먼저 붙여넣어 주세요."; return; }
     var o; try{ o=decodeCode(v); }catch(e){ er.textContent="코드를 읽지 못했어요. 빠짐없이 복사됐는지 확인해 주세요."; return; }
-    confirmBox("코드로 덮어쓸까요?", "지금 이 폰의 일정은 사라지고 코드 내용으로 바뀌어요.", "덮어쓰기", function(){ S=o; save(); toast("불러왔어요"); view.tab="today"; render(); }, true);
+    confirmBox("코드로 덮어쓸까요?", "가족 모두가 보는 일정이 코드 내용으로 바뀌어요.", "덮어쓰기", function(){ S=o; save(); toast("불러왔어요"); view.tab="today"; render(); }, true);
   };
-  $("reset").onclick=function(){
-    confirmBox("모든 일정을 지울까요?", "이 폰에 저장된 시간표·레슨·특별 일정이 모두 지워져요. 되돌릴 수 없어요.", "모두 지우기", function(){ try{ localStorage.removeItem(KEY); }catch(e){} S=null; view.tab="today"; render(); }, true);
+  $("logout").onclick=function(){
+    confirmBox("로그아웃할까요?", "다시 보려면 구글 로그인이 필요해요. 일정은 그대로 남아 있어요.", "로그아웃", function(){
+      try{ localStorage.removeItem(KEY); }catch(e){} S=null; view.tab="today"; if(cloud.signOut) cloud.signOut(); }, false);
   };
 }
 function openDetails(i){ var ds=document.querySelectorAll("details.set"); if(ds[i]){ ds[0].open=false; ds[i].open=true; } }
@@ -829,11 +945,12 @@ function clearHash(){ try{ history.replaceState(null,"",location.pathname+locati
   clearHash();
   if(!S){ S=o; save(); setTimeout(function(){ toast("시간표를 불러왔어요"); },300); return; }
   setTimeout(function(){
-    confirmBox("새 시간표로 바꿀까요?", "링크에 담긴 시간표로 이 폰의 일정을 덮어써요.", "바꾸기", function(){ S=o; save(); view.tab="today"; render(); toast("시간표를 불러왔어요"); }, true);
+    confirmBox("새 시간표로 바꿀까요?", "링크에 담긴 시간표로 가족 일정 전체를 덮어써요.", "바꾸기", function(){ S=o; save(); view.tab="today"; render(); toast("시간표를 불러왔어요"); }, true);
   },200);
 })();
 
 render();
+startCloud();
 })();
 </script>
 </body>
