@@ -321,6 +321,16 @@ var COLOR_NAMES = ["초록","주황","파랑","분홍","보라","노랑"];
 function blank(){
   return { v:2, title:"가족 일정", kids:[], fixed:{}, lesson:{title:"배드민턴 레슨", start:"18:30", end:"19:00", home:"20:00", kids:[], monthly:10, driver:"아빠"}, lessonDays:{}, events:[], overrides:{}, adults:[{id:"아빠",name:"아빠",color:"#378ADD"},{id:"엄마",name:"엄마",color:"#D4537E"}], periods:[] };
 }
+/* 아빠 2026 교육 일정 (한 번만 자동으로 넣음, 지운 건 다시 안 넣음) */
+var SEED_KEY="edu2026";
+var SEED_PERIODS=[{"who":"아빠","title":"6기 실무교육","start":"2026-10-12","end":"2026-10-14","weekend":false},{"who":"아빠","title":"7기 실무교육","start":"2026-10-19","end":"2026-10-21","weekend":false},{"who":"아빠","title":"6기 중급현장지휘관 자격인증 과정","start":"2026-10-26","end":"2026-11-06","weekend":false},{"who":"아빠","title":"평가대비 사전연습","start":"2026-11-09","end":"2026-11-13","weekend":false},{"who":"아빠","title":"4회 초급현장지휘관 자격인증 평가","start":"2026-11-16","end":"2026-11-20","weekend":false},{"who":"아빠","title":"신임소방관 교육","start":"2026-11-23","end":"2026-11-23","weekend":false},{"who":"아빠","title":"신임소방관 교육","start":"2026-11-24","end":"2026-11-24","weekend":false},{"who":"아빠","title":"경남 교육","start":"2026-11-25","end":"2026-11-25","weekend":false},{"who":"아빠","title":"신임소방관 교육","start":"2026-11-26","end":"2026-11-26","weekend":false},{"who":"아빠","title":"신임소방관 교육","start":"2026-11-27","end":"2026-11-27","weekend":false},{"who":"아빠","title":"평가대비 사전연습","start":"2026-11-30","end":"2026-12-04","weekend":false},{"who":"아빠","title":"4회 중급현장지휘관 자격인증 평가","start":"2026-12-07","end":"2026-12-11","weekend":false}];
+var seedAdded=false;
+function applySeed(o){
+  o.seeds=o.seeds||{};
+  if(o.seeds[SEED_KEY]) return;
+  SEED_PERIODS.forEach(function(p){ if(!o.periods.some(function(q){ return q.who===p.who && q.title===p.title && q.start===p.start; })) o.periods.push({id:uid(), who:p.who, title:p.title, start:p.start, end:p.end, weekend:!!p.weekend, skip:[]}); });
+  o.seeds[SEED_KEY]=1; seedAdded=true;
+}
 function normalize(o){
   var b=blank();
   if(!o || !Array.isArray(o.kids)) throw new Error("bad");
@@ -336,6 +346,7 @@ function normalize(o){
   o.periods=Array.isArray(o.periods)?o.periods:[];
   if(!o.workInit){ o.workInit=true; if(!o.fixed["아빠"]){ o.fixed["아빠"]={}; [1,2,3,4,5].forEach(function(d){ o.fixed["아빠"][d]=[{id:"w"+d, s:"09:00", e:"18:00", title:"근무", work:true}]; }); } }
   o.periods.forEach(function(p){ if(!p.id) p.id=uid(); if(!Array.isArray(p.skip)) p.skip=[]; });
+  applySeed(o);
   // 고정 일정에 id가 없으면 붙여줌
   Object.keys(o.fixed).forEach(function(k){ Object.keys(o.fixed[k]).forEach(function(d){ (o.fixed[k][d]||[]).forEach(function(it){ if(!it.id) it.id=uid(); if(it.e==null) it.e=""; }); }); });
   o.events.forEach(function(ev){ if(!ev.id) ev.id=uid(); });
@@ -366,9 +377,11 @@ function doPush(){
   var json=JSON.stringify(S);
   if(json===cloud.lastRemote) return;
   cloud.mod.setDoc(cloud.ref, {json:json, updatedAt:cloud.mod.serverTimestamp(), updatedBy:(cloud.user&&cloud.user.email)||""}, {merge:true})
-    .then(function(){ cloud.lastRemote=json; if(cloud.status==="empty"){ cloud.status="ok"; updateSync(); } })
+    .then(function(){ cloud.lastRemote=json; cloud.silent=false; if(cloud.status==="empty"){ cloud.status="ok"; updateSync(); } })
     .catch(function(e){
+      var quiet=cloud.silent; cloud.silent=false;
       if(e && e.code==="permission-denied"){
+        if(quiet) return;
         toast("보기 전용 계정이라 저장되지 않았어요");
         if(cloud.lastRemote) applyJson(cloud.lastRemote, true);
       } else toast("저장하지 못했어요. 인터넷 연결을 확인해 주세요");
@@ -379,6 +392,7 @@ function applyJson(json, force){
   if(!force && S && json===JSON.stringify(S)) return;
   try{ S=normalize(JSON.parse(json)); }catch(e){ return; }
   saveLocal(); render(true);
+  if(seedAdded){ seedAdded=false; cloud.silent=true; pushCloud(); }
 }
 function onRemote(snap){
   if(snap.metadata && snap.metadata.hasPendingWrites) return;
@@ -425,7 +439,7 @@ function startCloud(){
 }
 setInterval(function(){ if(cloud.pending && !isBusy()) applyJson(cloud.pending); }, 1500);
 
-var APP_VER="10/13-4";
+var APP_VER="10/13-5";
 var UI_KEY="familySchedule.ui";
 var UI={adults:false, per:true}; try{ var _u=JSON.parse(localStorage.getItem(UI_KEY)||"null"); if(_u){ UI.adults=!!_u.adults; if(_u.per!=null) UI.per=!!_u.per; } }catch(e){}
 function saveUI(){ try{ localStorage.setItem(UI_KEY, JSON.stringify(UI)); }catch(e){} }
