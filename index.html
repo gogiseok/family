@@ -425,7 +425,7 @@ function startCloud(){
 }
 setInterval(function(){ if(cloud.pending && !isBusy()) applyJson(cloud.pending); }, 1500);
 
-var APP_VER="10/13-3";
+var APP_VER="10/13-4";
 var UI_KEY="familySchedule.ui";
 var UI={adults:false, per:true}; try{ var _u=JSON.parse(localStorage.getItem(UI_KEY)||"null"); if(_u){ UI.adults=!!_u.adults; if(_u.per!=null) UI.per=!!_u.per; } }catch(e){}
 function saveUI(){ try{ localStorage.setItem(UI_KEY, JSON.stringify(UI)); }catch(e){} }
@@ -689,7 +689,7 @@ function tlColor(hex){ return /^#[0-9a-f]{6}$/i.test(hex) ? hex : "#888888"; }
 function buildTimeline(ds, nm){
   var cols = S.kids.map(function(k){ return { k:k, items:itemsFor(k.id, ds) }; });
   var open=UI.adults;
-  S.adults.forEach(function(a){ cols.push({ k:a, items:itemsFor(a.id, ds), adult:true, mini:!open }); });
+  S.adults.forEach(function(a){ cols.push({ k:a, items:itemsFor(a.id, ds).filter(function(it){ return !(it.work && !it.changed && !it.cancelled); }), adult:true, mini:!open }); });
   var timed=[], untimed=[];
   var seenU={};
   cols.forEach(function(c){ c.timed=c.items.filter(function(it){ return !!it.s; }); c.untimed=c.items.filter(function(it){ return !it.s; });
@@ -769,7 +769,19 @@ function smsDayLines(kidId, ds, compact){
   });
   return out;
 }
-function smsText(who, range, baseDay){
+function smsAdultLines(ds){
+  var out=[];
+  S.adults.forEach(function(a){
+    var al=periodsOn(ds).filter(function(p){ return p.who===a.id; }).map(function(p){ var lb=periodLabel(p,ds); return p.title+(lb?" ("+lb+")":""); })
+      .concat(itemsFor(a.id, ds).filter(function(it){ return it.kind==="ev" && (findEvent(it.id)||{}).who!=="all"; }).map(function(it){ return (it.s?smsTime(it.s)+" ":"")+it.title; }))
+      .concat(itemsFor(a.id, ds).filter(function(it){ return it.work && it.cancelled && !periodsOn(ds).some(function(p){ return p.who===a.id; }); }).map(function(){ return "휴가"; }))
+      .concat(itemsFor(a.id, ds).filter(function(it){ return it.work && it.changed && !it.cancelled; }).map(function(it){ return "근무 "+smsTime(it.s)+"~"+smsTime(it.e).replace("오전 ",""); }))
+      .concat(itemsFor(a.id, ds).filter(function(it){ return !it.work && it.kind==="fixed" && !it.cancelled; }).map(function(it){ return (it.s?smsTime(it.s)+" ":"")+it.title; }));
+    if(al.length) out.push(a.name+": "+al.join(", "));
+  });
+  return out;
+}
+function smsText(who, range, baseDay, withAdults){
   var kids = who==="all" ? S.kids : S.kids.filter(function(k){ return k.id===who; });
   var name = who==="all" ? "가족" : kids[0].name;
   var d0 = range==="tomorrow" ? addDays(baseDay,1) : baseDay;
@@ -781,11 +793,7 @@ function smsText(who, range, baseDay){
       if(who==="all") lines.push("", "- "+k.name);
       if(!ls.length) lines.push("일정 없음"); else lines=lines.concat(ls);
     });
-    if(who==="all") S.adults.forEach(function(a){
-      var al=periodsOn(d0).filter(function(p){ return p.who===a.id; }).map(function(p){ return p.title; })
-        .concat(itemsFor(a.id, d0).filter(function(it){ return it.kind==="ev"; }).map(function(it){ return (it.s?smsTime(it.s)+" ":"")+it.title; }));
-      if(al.length){ lines.push("", "- "+a.name); lines=lines.concat(al); }
-    });
+    if(withAdults){ var ad=smsAdultLines(d0); if(ad.length){ lines.push("", "- 아빠·엄마"); lines=lines.concat(ad); } }
     return lines.join("\n");
   }
   var mon=weekStart(baseDay), sun=addDays(mon,6), m=parseD(mon), su=parseD(sun);
@@ -800,25 +808,36 @@ function smsText(who, range, baseDay){
     }
     if(!any) lines2.push("일정 없음");
   });
+  if(withAdults){
+    var seen={}, ad2=[];
+    S.periods.filter(function(p){ return p.start<=sun && p.end>=mon; }).forEach(function(p){ var a=adultById(p.who)||{name:p.who}; var days=periodDays(p).filter(function(d){ return d>=mon && d<=sun; }); if(!days.length) return;
+      ad2.push(a.name+": "+p.title+" "+(days.length>1?DOW[parseD(days[0]).getDay()]+"~"+DOW[parseD(days[days.length-1]).getDay()]:DOW[parseD(days[0]).getDay()])); });
+    for(var j=0;j<7;j++){ var dj=addDays(mon,j);
+      S.adults.forEach(function(a){ itemsFor(a.id,dj).filter(function(it){ return it.kind==="ev" && (findEvent(it.id)||{}).who!=="all"; }).forEach(function(it){ ad2.push(a.name+": "+DOW[parseD(dj).getDay()]+" "+(it.s?smsTime(it.s)+" ":"")+it.title); }); }); }
+    if(ad2.length){ lines2.push("", "- 아빠·엄마"); lines2=lines2.concat(ad2); }
+  }
   return lines2.join("\n");
 }
 var IS_IOS=/iPhone|iPad|iPod/i.test(navigator.userAgent);
 function openSmsSheet(range){
-  var st={ who: S.kids[0] ? S.kids[0].id : "all", range: range||"today" };
+  var st={ who: S.kids[0] ? S.kids[0].id : "all", range: range||"today", ad: true };
   var base=view.tab==="week" && view.weekBase ? view.weekBase : view.day;
   var h='<h3>문자로 보내기</h3><div class="sub">인터넷이 안 되는 폰에도 문자로 보낼 수 있어요.</div>'+
     '<label class="f">누구에게</label><div class="who" id="smw">'+S.kids.map(function(k){ return '<button class="chip'+(k.id===st.who?' on':'')+'" data-w="'+k.id+'">'+esc(k.name)+'</button>'; }).join("")+'<button class="chip'+(st.who==="all"?' on':'')+'" data-w="all">가족 모두</button></div>'+
     '<label class="f">언제 일정</label><div class="who" id="smr"><button class="chip" data-r="today">'+(view.day===todayStr()?"오늘":"이날")+'</button><button class="chip" data-r="tomorrow">'+(view.day===todayStr()?"내일":"다음날")+'</button><button class="chip" data-r="week">이번 주</button></div>'+
+    '<label class="f">아빠·엄마 일정</label><div class="who" id="sma"><button class="chip" data-a="1">넣기</button><button class="chip" data-a="0">빼기</button></div>'+
     '<label class="f" for="smt">보낼 내용 (고쳐도 돼요)</label><textarea id="smt" style="min-height:170px;font-family:inherit;font-size:15px"></textarea>'+
     '<div class="stack"><button class="btn pri" id="smgo">문자 앱 열기</button><button class="btn" id="smcp">글 복사</button><button class="btn ghost" data-close>닫기</button></div>';
   openSheet(h, function(bg, close){
     function upd(){
       each("#smw .chip",function(c){ c.classList.toggle("on", c.getAttribute("data-w")===st.who); }, bg);
       each("#smr .chip",function(c){ c.classList.toggle("on", c.getAttribute("data-r")===st.range); }, bg);
-      bg.querySelector("#smt").value=smsText(st.who, st.range, base);
+      each("#sma .chip",function(c){ c.classList.toggle("on", (c.getAttribute("data-a")==="1")===st.ad); }, bg);
+      bg.querySelector("#smt").value=smsText(st.who, st.range, base, st.ad);
     }
     each("#smw .chip",function(c){ c.onclick=function(){ st.who=c.getAttribute("data-w"); upd(); }; }, bg);
     each("#smr .chip",function(c){ c.onclick=function(){ st.range=c.getAttribute("data-r"); upd(); }; }, bg);
+    each("#sma .chip",function(c){ c.onclick=function(){ st.ad=c.getAttribute("data-a")==="1"; upd(); }; }, bg);
     bg.querySelector("#smgo").onclick=function(){ var t=bg.querySelector("#smt").value; location.href="sms:"+(IS_IOS?"&":"?")+"body="+encodeURIComponent(t); };
     bg.querySelector("#smcp").onclick=function(){ copyText(bg.querySelector("#smt").value, "복사했어요. 문자 앱에 붙여넣으세요"); };
     upd();
@@ -980,6 +999,9 @@ function renderMonth(){
 
 /* ---------- 링크로 일정 더하기 (#ADD1:...) ---------- */
 var pendingAdd=null;
+function parseAdd(text){ var i=String(text||"").indexOf("ADD1:"); if(i<0) return null;
+  var b=String(text).slice(i+5).replace(/%2B/gi,"+").replace(/%2F/gi,"/").replace(/%3D/gi,"=").match(/^[A-Za-z0-9+\/=\s]+/); if(!b) return null;
+  try{ var a=JSON.parse(decodeURIComponent(escape(atob(b[0].replace(/\s+/g,""))))); return Array.isArray(a.periods)?a.periods:null; }catch(e){ return null; } }
 function tryPendingAdd(){
   if(!pendingAdd || !S || !(cloud.status==="ok"||cloud.status==="empty"||cloud.status==="noload"||cloud.status==="error")) return;
   if(isModalOpen()) return;
@@ -1201,11 +1223,14 @@ function renderEvents(){
   if(!ups.length) h+='<div class="card empty">교육, 출장처럼 며칠 이어지는 일정을 넣어 보세요.</div>';
   else { h+='<div class="card evlist">'+ups.map(function(p){ var a=adultById(p.who)||{name:p.who,color:"#888888"}; return '<div class="row" data-per="'+esc(p.id)+'" role="button" tabindex="0"><div class="when">'+periodRange(p)+'</div><div class="what">'+esc(p.title)+' <span class="tag"><span class="dot" style="width:8px;height:8px;background:'+esc(tlColor(a.color))+'"></span>'+esc(a.name)+'</span></div><span class="del" aria-hidden="true">›</span></div>'; }).join("")+'</div>'; }
   h+='<button class="btn wide" id="newper">＋ 기간 일정 추가</button>';
+  h+='<details class="set" style="margin-top:8px"><summary>받은 링크로 기간 일정 넣기</summary><div style="margin-top:6px"><div class="note" style="margin-top:0">교육 일정 링크(ADD1:이 들어 있는 링크)를 통째로 붙여넣고 넣기를 누르세요. 이미 있는 일정은 겹쳐 들어가지 않아요.</div>'+
+     '<textarea id="addimp" placeholder="https://gogiseok.github.io/family/#ADD1:..."></textarea><div class="err" id="adderr"></div><button class="btn pri wide" id="addgo">넣기</button></div></details>';
   h+='<div class="note">일정을 누르면 고치거나 지울 수 있어요.</div>';
   if(past.length) h+='<button class="btn wide" id="clrpast">지난 일정 '+past.length+'개 정리</button>';
   $("app").innerHTML=h;
   $("newev").onclick=function(){ openNewEventSheet(view.day>=today?view.day:today, "all", true); };
   $("newper").onclick=function(){ openPeriodSheet(null, null); };
+  $("addgo").onclick=function(){ var ps=parseAdd($("addimp").value); if(!ps){ $("adderr").textContent="링크를 읽지 못했어요. 링크 전체가 복사됐는지 확인해 주세요."; return; } pendingAdd=ps; tryPendingAdd(); };
   each("[data-per]",function(r){ r.onclick=function(){ openPeriodSheet(r.getAttribute("data-per"), null); }; });
   bindEvRows();
   var cp=$("clrpast");
@@ -1508,6 +1533,7 @@ function renderSettings(){
   $("impgo").onclick=function(){
     var v=$("imp").value, er=$("imperr");
     if(!v.trim()){ er.textContent="코드를 먼저 붙여넣어 주세요."; return; }
+    if(v.indexOf("ADD1:")>=0){ var ps=parseAdd(v); if(!ps){ er.textContent="링크를 읽지 못했어요. 빠짐없이 복사됐는지 확인해 주세요."; return; } pendingAdd=ps; view.tab="month"; render(); return; }
     var o; try{ o=decodeCode(v); }catch(e){ er.textContent="코드를 읽지 못했어요. 빠짐없이 복사됐는지 확인해 주세요."; return; }
     confirmBox("코드로 덮어쓸까요?", "가족 모두가 보는 일정이 코드 내용으로 바뀌어요.", "덮어쓰기", function(){ S=o; save(); toast("불러왔어요"); view.tab="today"; render(); }, true);
   };
@@ -1547,8 +1573,8 @@ function clearHash(){ try{ history.replaceState(null,"",location.pathname+locati
   var h=""; try{ h=location.hash ? decodeURIComponent(location.hash.slice(1)) : ""; }catch(e){ h=location.hash.slice(1); }
   if(h.indexOf("ADD1:")===0){
     clearHash();
-    try{ var a=JSON.parse(decodeURIComponent(escape(atob(h.slice(5).replace(/\s+/g,""))))); pendingAdd=Array.isArray(a.periods)?a.periods:null; }
-    catch(e){ setTimeout(function(){ toast("링크의 일정을 읽지 못했어요"); },300); }
+    pendingAdd=parseAdd(h);
+    if(!pendingAdd) setTimeout(function(){ toast("링크의 일정을 읽지 못했어요"); },300);
     return;
   }
   if(h.indexOf("FAM1:")!==0) return;
