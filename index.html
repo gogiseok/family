@@ -208,6 +208,11 @@ body.has-photo .note{color:var(--ink)}
 .nu-then{font-size:13px;color:var(--ink2);white-space:nowrap}
 .lesnudge{display:block;width:100%;text-align:left;background:var(--warn-bg);color:var(--warn);border:1px solid #BA7517;border-radius:10px;padding:8px 12px;margin-bottom:8px;font-size:13.5px}
 .lesnudge b{float:right}
+.adrow{display:flex;gap:6px;align-items:stretch;margin-bottom:8px}
+.adrow .adtog{margin-bottom:0;flex:1;min-width:0}
+.pertog{flex:none;border:1px solid var(--line2);background:transparent;border-radius:10px;padding:7px 10px;font-size:13px;font-weight:700;color:var(--ink2)}
+.pertog.on{background:#378ADD;border-color:#378ADD;color:#fff}
+body.has-photo .pertog:not(.on){background:color-mix(in srgb,var(--card) 90%,transparent)}
 .adtog{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;width:100%;text-align:left;background:transparent;border:1px dashed var(--line2);border-radius:10px;padding:7px 12px;margin-bottom:8px;font-size:13px;color:var(--ink2)}
 .adtog-l{font-weight:700;color:var(--ink);flex:none}
 .adtog-s{min-width:0}
@@ -420,8 +425,10 @@ function startCloud(){
 setInterval(function(){ if(cloud.pending && !isBusy()) applyJson(cloud.pending); }, 1500);
 
 var UI_KEY="familySchedule.ui";
-var UI={adults:false}; try{ var _u=JSON.parse(localStorage.getItem(UI_KEY)||"null"); if(_u) UI.adults=!!_u.adults; }catch(e){}
-function setAdultsOpen(v){ UI.adults=!!v; try{ localStorage.setItem(UI_KEY, JSON.stringify(UI)); }catch(e){} render(true); }
+var UI={adults:false, per:true}; try{ var _u=JSON.parse(localStorage.getItem(UI_KEY)||"null"); if(_u){ UI.adults=!!_u.adults; if(_u.per!=null) UI.per=!!_u.per; } }catch(e){}
+function saveUI(){ try{ localStorage.setItem(UI_KEY, JSON.stringify(UI)); }catch(e){} }
+function setAdultsOpen(v){ UI.adults=!!v; saveUI(); render(true); }
+function setPerShow(v){ UI.per=!!v; saveUI(); render(true); toast(UI.per?"교육·출장 기간을 보여줘요":"교육·출장 기간을 숨겼어요"); }
 var S = load();
 var view = { tab:"today", day:todayStr(), month:todayStr().slice(0,7), ttKid:null, ttDay:1, evWho:"all", evDate:null, weekBase:null };
 
@@ -1000,13 +1007,15 @@ function nextUpHtml(ds, nm){
 }
 function adultToggleHtml(ds){
   var sum=S.adults.map(function(a){
-    var ps=periodsOn(ds).filter(function(p){ return p.who===a.id; }).map(function(p){ return p.title; });
+    var ps=UI.per?[]:periodsOn(ds).filter(function(p){ return p.who===a.id; }).map(function(p){ return p.title; });
     var it=itemsFor(a.id, ds).filter(function(x){ return !x.work && x.kind!=="lesson" && x.kind!=="home" && !x.cancelled && !(x.kind==="ev" && (findEvent(x.id)||{}).who==="all"); }).map(function(x){ return x.title; });
     var off=itemsFor(a.id, ds).some(function(x){ return x.work && x.cancelled; });
     var all=ps.concat(it); if(off) all.unshift("휴가");
     return all.length ? '<span><b style="color:'+esc(tlColor(a.color))+'">'+esc(a.name)+'</b> '+esc(all.length>1?all[0]+" 외 "+(all.length-1):all[0])+'</span>' : '';
   }).filter(Boolean).join(" · ");
-  return '<button class="adtog" data-adtog="1" aria-expanded="'+(UI.adults?"true":"false")+'"><span class="adtog-l">👪 아빠·엄마 '+(UI.adults?"접기 ▴":"펼치기 ▾")+'</span>'+(!UI.adults&&sum?'<span class="adtog-s">'+sum+'</span>':'')+'</button>';
+  var hasPer=periodsOn(ds).length>0;
+  return '<div class="adrow"><button class="adtog" data-adtog="1" aria-expanded="'+(UI.adults?"true":"false")+'"><span class="adtog-l">👪 아빠·엄마 '+(UI.adults?"접기 ▴":"펼치기 ▾")+'</span>'+(!UI.adults&&sum?'<span class="adtog-s">'+sum+'</span>':'')+'</button>'+
+    (hasPer&&!UI.adults?'<button class="pertog'+(UI.per?' on':'')+'" data-pertog="1" aria-pressed="'+(UI.per?"true":"false")+'">📚 교육 '+(UI.per?"보는 중":"숨김")+'</button>':'')+'</div>';
 }
 
 /* ---------- 오늘 ---------- */
@@ -1044,7 +1053,7 @@ function renderToday(){
     if(!tc) h+='<button class="lesnudge" id="lesnudge" data-ym="'+tym+'">🏸 '+(tgt.getMonth()+1)+'월 레슨 날짜를 아직 안 넣었어요 <b>넣기 →</b></button>';
   }
   if(S.adults.length && S.kids.length) h+=adultToggleHtml(ds);
-  if(UI.adults || !S.kids.length) h+=pbandsHtml(ds);
+  if(UI.adults || UI.per || !S.kids.length) h+=pbandsHtml(ds);
   if(tl.html) h+=tl.html;
   else if(S.kids.length) h+='<div class="card empty" style="text-align:center;padding:22px 0">'+(dow===0||dow===6?"주말이에요 · 정해진 일정 없음":"이날은 일정이 없어요")+'</div>';
   if(S.kids.length){
@@ -1083,7 +1092,8 @@ function renderToday(){
   var ln=$("lesnudge"); if(ln) ln.onclick=function(){ view.mMonth=ln.getAttribute("data-ym"); view.mSel=null; view.mLes=true; view.tab="month"; render(); };
   bindEvRows();
 }
-function bindAdtog(){ each("[data-adtog]",function(el){ var fn=function(e){ if(e) e.stopPropagation(); setAdultsOpen(!UI.adults); }; el.onclick=fn; el.onkeydown=function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fn(e); } }; }); }
+function bindAdtog(){ each("[data-pertog]",function(b){ b.onclick=function(e){ e.stopPropagation(); setPerShow(!UI.per); }; });
+  each("[data-adtog]",function(el){ var fn=function(e){ if(e) e.stopPropagation(); setAdultsOpen(!UI.adults); }; el.onclick=fn; el.onkeydown=function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fn(e); } }; }); }
 
 /* ---------- 이번 주 ---------- */
 function weekStart(ds){ var d=parseD(ds); var off=(d.getDay()+6)%7; d.setDate(d.getDate()-off); return ymd(d); }
@@ -1094,12 +1104,13 @@ function renderWeek(){
   h+='<div class="daynav"><div><div class="title">'+(base===thisWeek?"이번 주":"주간 보기")+'</div><div class="sub">'+(mon.getMonth()+1)+'/'+mon.getDate()+' – '+(sun.getMonth()+1)+'/'+sun.getDate()+'</div></div>'+
      '<div class="btns"><button class="iconbtn" id="wprev" aria-label="지난주">‹</button>'+(base===thisWeek?'':'<button class="chip" id="wtod">이번 주</button>')+'<button class="iconbtn" id="wnext" aria-label="다음 주">›</button></div></div>';
   if(S.adults.length){
-    var wn=0; for(var j=0;j<7;j++){ var dj=addDays(base,j); wn+=periodsOn(dj).length; S.adults.forEach(function(a){ wn+=itemsFor(a.id,dj).filter(function(it){ return it.kind==="ev" && (findEvent(it.id)||{}).who!=="all"; }).length; }); }
-    h+='<button class="adtog" data-adtog="1" aria-expanded="'+(UI.adults?"true":"false")+'"><span class="adtog-l">👪 아빠·엄마 '+(UI.adults?"접기 ▴":"펼치기 ▾")+'</span>'+(!UI.adults?'<span class="adtog-s">'+(wn?"이번 주 일정 "+wn+"개":"이번 주 일정 없음")+'</span>':'')+'</button>';
+    var wn=0, wpn=0; for(var j=0;j<7;j++){ var dj=addDays(base,j); wpn+=periodsOn(dj).length; if(!UI.per) wn+=periodsOn(dj).length; S.adults.forEach(function(a){ wn+=itemsFor(a.id,dj).filter(function(it){ return it.kind==="ev" && (findEvent(it.id)||{}).who!=="all"; }).length; }); }
+    h+='<div class="adrow"><button class="adtog" data-adtog="1" aria-expanded="'+(UI.adults?"true":"false")+'"><span class="adtog-l">👪 아빠·엄마 '+(UI.adults?"접기 ▴":"펼치기 ▾")+'</span>'+(!UI.adults?'<span class="adtog-s">'+(wn?"이번 주 일정 "+wn+"개":"이번 주 일정 없음")+'</span>':'')+'</button>';
+    h+=(wpn&&!UI.adults?'<button class="pertog'+(UI.per?' on':'')+'" data-pertog="1" aria-pressed="'+(UI.per?"true":"false")+'">📚 교육 '+(UI.per?"보는 중":"숨김")+'</button>':'')+'</div>';
   }
   for(var i=0;i<7;i++){
     var ds=addDays(base,i), dow=parseD(ds).getDay();
-    var hasAny = S.kids.some(function(k){ return itemsFor(k.id,ds).length; }) || allEventsOn(ds).length || (UI.adults && periodsOn(ds).length);
+    var hasAny = S.kids.some(function(k){ return itemsFor(k.id,ds).length; }) || allEventsOn(ds).length || ((UI.adults||UI.per) && periodsOn(ds).length);
     if((dow===0||dow===6) && !hasAny) continue;
     var dd=parseD(ds), lt=lessonTimes(ds), lon=isLessonDay(ds)&&lessonKidsOn(ds).length;
     h+='<div class="wday'+(ds===todayStr()?' today':'')+'" data-day="'+ds+'"><div class="wday-h"><b>'+DOW[dow]+' <span class="muted small" style="font-weight:400">'+(dd.getMonth()+1)+'/'+dd.getDate()+'</span></b>'+
@@ -1115,7 +1126,7 @@ function renderWeek(){
       h+='</div>';
     });
     h+='</div>';
-    var wps=UI.adults?periodsOn(ds):[];
+    var wps=(UI.adults||UI.per)?periodsOn(ds):[];
     if(wps.length) h+='<div class="wper">'+wps.map(function(p){ var a=adultById(p.who)||{name:p.who,color:"#888888"}; return '<span style="background:'+esc(tlColor(a.color))+'">'+esc(a.name)+' · '+esc(p.title)+'</span>'; }).join("")+'</div>';
     if(UI.adults) S.adults.forEach(function(a){ var al=itemsFor(a.id,ds).filter(function(it){ return it.kind==="ev"; }); if(al.length) h+='<div class="wadult"><b style="color:'+esc(tlColor(a.color))+'">'+esc(a.name)+'</b> '+al.map(function(it){ return (it.s?short(it.s)+" ":"")+esc(it.title); }).join(", ")+'</div>'; });
     var ot=otherEvents(ds);
