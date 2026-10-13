@@ -221,6 +221,7 @@ body.has-photo .pertog:not(.on){background:color-mix(in srgb,var(--card) 90%,tra
 .tl-b.mini{left:2px;right:2px;width:auto;padding:0;border-radius:4px;border-left:0;background:var(--kc);opacity:.55;cursor:pointer}
 .tl-b.mini.work{background:repeating-linear-gradient(180deg,var(--kc) 0 2px,transparent 2px 6px);opacity:.5}
 .tl-b.mini.cxl{opacity:.25}
+.addrow.sub .btn{font-size:13px;padding:7px 4px;color:var(--ink2)}
 .btn.pri-k{border-color:var(--kc);border-width:1.5px;font-weight:700}
 body.has-photo .nextup,body.has-photo .adtog{background:color-mix(in srgb,var(--card) 90%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .ut{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
@@ -424,6 +425,7 @@ function startCloud(){
 }
 setInterval(function(){ if(cloud.pending && !isBusy()) applyJson(cloud.pending); }, 1500);
 
+var APP_VER="10/13-3";
 var UI_KEY="familySchedule.ui";
 var UI={adults:false, per:true}; try{ var _u=JSON.parse(localStorage.getItem(UI_KEY)||"null"); if(_u){ UI.adults=!!_u.adults; if(_u.per!=null) UI.per=!!_u.per; } }catch(e){}
 function saveUI(){ try{ localStorage.setItem(UI_KEY, JSON.stringify(UI)); }catch(e){} }
@@ -1059,10 +1061,7 @@ function renderToday(){
   if(S.kids.length){
     var ppl=S.kids.slice();
     h+='<div class="addrow" style="grid-template-columns:repeat('+(ppl.length<=3?ppl.length:2)+',minmax(0,1fr))">'+ppl.map(function(k){ return '<button class="btn pri-k" data-addkid="'+esc(k.id)+'" style="--kc:'+esc(tlColor(k.color))+'">＋ '+esc(k.name)+' 일정</button>'; }).join("")+'</div>';
-    if(UI.adults){
-      h+='<div class="addrow" style="grid-template-columns:repeat('+Math.min(S.adults.length,3)+',minmax(0,1fr))">'+S.adults.map(function(k){ return '<button class="btn" data-addkid="'+esc(k.id)+'">＋ '+esc(k.name)+' 일정</button>'; }).join("")+'</div>';
-      h+='<button class="btn wide" id="addper">＋ 아빠·엄마 기간 일정 (교육·출장)</button>';
-    }
+    h+='<div class="addrow sub" style="grid-template-columns:repeat('+(S.adults.length+1)+',minmax(0,1fr))">'+S.adults.map(function(k){ return '<button class="btn" data-addkid="'+esc(k.id)+'" style="--kc:'+esc(tlColor(k.color))+'">＋ '+esc(k.name)+'</button>'; }).join("")+'<button class="btn" id="addper">＋ 교육·출장</button></div>';
     h+='<button class="btn wide smsbtn" id="sms">✉️ 문자로 보내기</button>';
     h+='<div class="note">일정을 누르면 이날만 시간 변경·휴강 처리를 할 수 있어요.</div>';
   }
@@ -1466,6 +1465,7 @@ function renderSettings(){
      '<button class="btn wide" id="impgo">불러오기 (가족 일정 전체가 바뀌어요)</button></div></details>';
 
   h+='<div class="note">일정은 등록된 가족 계정만 볼 수 있는 저장소에 보관돼요.</div>';
+  h+='<div class="note" style="text-align:center">앱 버전 '+APP_VER+' · 교육·출장 기간 일정 '+S.periods.length+'개</div>';
 
   $("tabs").classList.add("hide");
   $("app").innerHTML=h;
