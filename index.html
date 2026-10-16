@@ -10,6 +10,9 @@
 <meta name="robots" content="noindex">
 <meta name="google" content="notranslate">
 <title>가족 일정</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="가족 일정">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f6e56'/%3E%3Crect x='14' y='18' width='36' height='32' rx='5' fill='white'/%3E%3Crect x='14' y='18' width='36' height='9' rx='4' fill='%23f0997b'/%3E%3Ccircle cx='25' cy='38' r='4' fill='%230f6e56'/%3E%3Ccircle cx='39' cy='38' r='4' fill='%23d85a30'/%3E%3C/svg%3E">
 <style>
 :root{
@@ -225,6 +228,9 @@ body.has-photo .note{color:var(--ink)}
   .pv-bar{display:none}
   .pv-page{box-shadow:none;max-width:none;padding:0}
 }
+.instbar{display:flex;align-items:center;gap:8px;background:var(--accent-bg);border:1px solid var(--accent);border-radius:12px;padding:8px 8px 8px 12px;margin-bottom:10px;font-size:14px;font-weight:700;color:var(--accent)}
+.instbar span{flex:1;min-width:0}.instbar .btn{margin:0;width:auto;padding:7px 14px;flex:none}.instbar .iconbtn{flex:none;width:34px;height:34px}
+.inststeps{margin:12px 0 6px;padding-left:22px;font-size:16px;line-height:1.7}.inststeps li{margin-bottom:4px}
 .nextup{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px;margin-bottom:10px;display:flex;flex-direction:column;gap:6px}
 .nu-row{display:flex;align-items:baseline;gap:10px;min-width:0}
 .nu-name{flex:none;display:flex;align-items:center;gap:6px;font-weight:800;font-size:15px;min-width:52px}
@@ -464,7 +470,7 @@ function startCloud(){
 }
 setInterval(function(){ if(cloud.pending && !isBusy()) applyJson(cloud.pending); }, 1500);
 
-var APP_VER="10/16-1";
+var APP_VER="10/16-2";
 var UI_KEY="familySchedule.ui";
 var UI={adults:false, per:true}; try{ var _u=JSON.parse(localStorage.getItem(UI_KEY)||"null"); if(_u){ UI.adults=!!_u.adults; if(_u.per!=null) UI.per=!!_u.per; } }catch(e){}
 function saveUI(){ try{ localStorage.setItem(UI_KEY, JSON.stringify(UI)); }catch(e){} }
@@ -1217,6 +1223,7 @@ function renderToday(){
   }
 
   var nm = isToday ? nowMin() : null;
+  if(isToday) h+=installBannerHtml();
   if(isToday && S.kids.length) h+=nextUpHtml(ds, nm);
   if(isLessonDay(ds)){
     var on=lessonKidsOn(ds), lt=lessonTimes(ds);
@@ -1274,6 +1281,7 @@ function renderToday(){
   });
   each("[data-addkid]",function(b){ b.onclick=function(){ openNewEventSheet(ds, b.getAttribute("data-addkid")); }; });
   bindAdtog();
+  bindInstallBanner();
   var ln=$("lesnudge"); if(ln) ln.onclick=function(){ view.mMonth=ln.getAttribute("data-ym"); view.mSel=null; view.mLes=true; view.tab="month"; render(); };
   bindEvRows();
 }
@@ -1605,6 +1613,7 @@ function openWeeklySheet(kidId, dow, id){
 function renderSettings(){
   if(!view.ttKid || !personById(view.ttKid)) view.ttKid = S.kids[0] ? S.kids[0].id : null;
   var h='<header class="top"><h1>설정</h1><button class="iconbtn" id="back" aria-label="닫기">✕</button></header>';
+  h+= isStandalone() ? '<div class="note" style="margin:0 0 10px">📲 홈 화면 앱으로 열려 있어요</div>' : '<button class="btn pri wide" id="instset" style="margin:0 0 10px">📲 홈 화면에 추가</button>';
 
   h+='<details class="set" open><summary>고정 시간표 (매주 반복)</summary><div style="margin-top:10px">';
   if(!S.kids.length) h+='<div class="empty">아이를 먼저 추가해 주세요.</div>';
@@ -1662,6 +1671,7 @@ function renderSettings(){
   $("tabs").classList.add("hide");
   $("app").innerHTML=h;
   $("back").onclick=function(){ view.tab="today"; render(); };
+  var isb=$("instset"); if(isb) isb.onclick=openInstall;
 
   if(S.kids.length){
     each("#ttkid .chip",function(b){ b.onclick=function(){ view.ttKid=b.getAttribute("data-k"); renderSettings(); }; });
@@ -1754,6 +1764,50 @@ function clearHash(){ try{ history.replaceState(null,"",location.pathname+locati
 })();
 
 window.addEventListener("hashchange",function(){ var h=location.hash.slice(1); if(h.indexOf("ADD1:")===0||h.indexOf("FAM1:")===0) location.reload(); });
+/* ---------- 홈 화면에 추가 ---------- */
+var installEvt=null;
+function isStandalone(){ try{ return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone===true; }catch(e){ return false; } }
+window.addEventListener("beforeinstallprompt",function(e){ e.preventDefault(); installEvt=e; if(S && view.tab==="today" && !isModalOpen()) render(true); });
+window.addEventListener("appinstalled",function(){ installEvt=null; try{ localStorage.setItem("familySchedule.installed","1"); }catch(e){} toast("홈 화면에 추가했어요"); render(true); });
+if("serviceWorker" in navigator && (location.protocol==="https:" || location.hostname==="localhost" || location.hostname==="127.0.0.1")){
+  window.addEventListener("load",function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });
+}
+function installHidden(){ try{ return localStorage.getItem("familySchedule.installHide")==="1" || localStorage.getItem("familySchedule.installed")==="1"; }catch(e){ return false; } }
+function installBannerHtml(){
+  if(isStandalone() || installHidden()) return "";
+  return '<div class="instbar"><span>📲 홈 화면에 추가하면 앱처럼 바로 열려요</span><button class="btn pri" id="instgo">추가</button><button class="iconbtn" id="instx" aria-label="닫기">✕</button></div>';
+}
+function bindInstallBanner(){
+  var g=$("instgo"); if(g) g.onclick=openInstall;
+  var x=$("instx"); if(x) x.onclick=function(){ try{ localStorage.setItem("familySchedule.installHide","1"); }catch(e){} render(true); toast("⚙️ 설정에서 언제든 추가할 수 있어요"); };
+}
+function openInstall(){
+  if(isStandalone()){ toast("이미 홈 화면 앱으로 열려 있어요"); return; }
+  if(installEvt){
+    var ev=installEvt; installEvt=null;
+    ev.prompt();
+    (ev.userChoice||Promise.resolve({})).then(function(r){ if(r && r.outcome==="accepted"){ try{ localStorage.setItem("familySchedule.installed","1"); }catch(e){} } render(true); });
+    return;
+  }
+  var SAM=/SamsungBrowser/i.test(navigator.userAgent), steps, note="";
+  if(IN_KAKAO){
+    steps=['오른쪽 아래(또는 위) <b>⋮</b> 메뉴를 누르세요','<b>다른 브라우저로 열기</b>(크롬)를 누르세요','크롬에서 다시 이 화면의 <b>📲 추가</b>를 누르세요'];
+    note="카카오톡 안에서는 홈 화면에 추가할 수 없어요.";
+  } else if(IS_IOS){
+    steps=['사파리 아래쪽 <b>공유 버튼</b>(네모에 화살표 ⬆)을 누르세요','목록을 올려 <b>홈 화면에 추가</b>를 누르세요','이름이 "가족 일정"인지 보고 <b>추가</b>를 누르세요'];
+    note="아이폰은 사파리에서만 추가할 수 있어요.";
+  } else if(SAM){
+    steps=['아래쪽 <b>≡</b> 메뉴를 누르세요','<b>현재 페이지 추가</b> → <b>홈 화면</b>을 누르세요','<b>추가</b>를 누르세요'];
+  } else {
+    steps=['오른쪽 위 <b>⋮</b> 메뉴를 누르세요','<b>홈 화면에 추가</b> 또는 <b>앱 설치</b>를 누르세요','<b>설치</b>(또는 추가)를 누르세요'];
+    note="메뉴에 '앱 설치'가 보이면 그걸 누르면 주소창 없이 앱처럼 열려요.";
+  }
+  var h='<h3>📲 홈 화면에 추가</h3><div class="sub">'+(note||"한 번만 해 두면 아이콘을 눌러 바로 열 수 있어요.")+'</div>'+
+    '<ol class="inststeps">'+steps.map(function(t){ return '<li>'+t+'</li>'; }).join("")+'</ol>'+
+    '<div class="note">추가한 뒤에는 홈 화면의 초록색 달력 아이콘 <b>가족 일정</b>으로 여세요. 일정은 지금과 똑같이 가족과 함께 보여요.</div>'+
+    '<div class="stack"><button class="btn ghost" data-close>확인</button></div>';
+  openSheet(h, function(){});
+}
 applyBackdrop();
 render();
 startCloud();
