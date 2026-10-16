@@ -200,6 +200,31 @@ body.has-photo .note{color:var(--ink)}
 .tl-b.past{opacity:.55}
 .tl-now{position:absolute;left:38px;right:0;border-top:2px solid #D85A30;z-index:4;pointer-events:none}
 .tl-now span{position:absolute;left:-40px;top:-10px;background:#D85A30;color:#fff;font-size:10px;font-weight:700;border-radius:999px;padding:1px 5px;font-variant-numeric:tabular-nums}
+.shprev{margin:10px 0;border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:46vh;background:#F6F4EF}
+.shprev img{display:block;width:100%;height:auto}
+#printv{position:fixed;inset:0;z-index:60;background:#e9e7e1;overflow:auto;padding:12px}
+.pv-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;max-width:1000px;margin:0 auto 10px}
+.pv-bar .btn{margin:0;width:auto;padding:9px 14px}
+.pv-page{background:#fff;color:#222;max-width:1000px;margin:0 auto;padding:22px 26px;box-shadow:0 2px 12px rgba(0,0,0,.12);font-family:"Noto Sans KR","Malgun Gothic",sans-serif}
+.pv-h{display:flex;align-items:baseline;gap:14px;margin-bottom:12px}.pv-h b{font-size:24px}.pv-h span{font-size:18px;color:#0F6E56;font-weight:700}
+.pv-t{width:100%;border-collapse:collapse;table-layout:fixed}
+.pv-t th,.pv-t td{border:1px solid #bbb;padding:6px 9px;vertical-align:top;font-size:15px;line-height:1.5;text-align:left}
+.pv-t thead th{color:#fff;font-size:17px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pv-t .pv-d{width:62px;text-align:center;font-size:18px;background:#f4f2ed;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pv-t .pv-d small{display:block;font-size:12px;color:#777;font-weight:400}
+.pv-t thead .pv-d{background:#fff;border-color:#fff #bbb #bbb #fff}
+.pv-t .sun{color:#c0392b}.pv-t .sat{color:#2f6db5}
+.pv-t .cx{color:#999;text-decoration:line-through}.pv-t .ls{color:#B45F06;font-weight:700}.pv-t .ev{color:#D85A30}.pv-t .em{color:#bbb}
+.pv-t tr.pv-today td,.pv-t tr.pv-today th{background:#E1F5EE;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pv-t tr.pv-ad td{font-size:13px;color:#185FA5;background:#EEF4FB;padding:3px 9px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pv-t tr.pv-ad th{border-top-color:transparent;background:#f4f2ed}
+.pv-f{margin-top:10px;font-size:12px;color:#777}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  body.printing>*:not(#printv){display:none!important}
+  html,body.printing{background:#fff!important;background-image:none!important}
+  #printv{position:static;background:#fff;padding:0;overflow:visible}
+  .pv-bar{display:none}
+  .pv-page{box-shadow:none;max-width:none;padding:0}
+}
 .nextup{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px;margin-bottom:10px;display:flex;flex-direction:column;gap:6px}
 .nu-row{display:flex;align-items:baseline;gap:10px;min-width:0}
 .nu-name{flex:none;display:flex;align-items:center;gap:6px;font-weight:800;font-size:15px;min-width:52px}
@@ -439,7 +464,7 @@ function startCloud(){
 }
 setInterval(function(){ if(cloud.pending && !isBusy()) applyJson(cloud.pending); }, 1500);
 
-var APP_VER="10/13-5";
+var APP_VER="10/16-1";
 var UI_KEY="familySchedule.ui";
 var UI={adults:false, per:true}; try{ var _u=JSON.parse(localStorage.getItem(UI_KEY)||"null"); if(_u){ UI.adults=!!_u.adults; if(_u.per!=null) UI.per=!!_u.per; } }catch(e){}
 function saveUI(){ try{ localStorage.setItem(UI_KEY, JSON.stringify(UI)); }catch(e){} }
@@ -832,6 +857,128 @@ function smsText(who, range, baseDay, withAdults){
   }
   return lines2.join("\n");
 }
+/* ---------- 공유 이미지 · 인쇄 ---------- */
+function sheetRows(range, baseDay, withAd){
+  var days=[];
+  if(range==="today") days=[baseDay];
+  else { var mon=weekStart(baseDay); for(var i=0;i<7;i++) days.push(addDays(mon,i)); }
+  var rows=[];
+  days.forEach(function(ds){
+    var dow=parseD(ds).getDay(), cells={}, any=false;
+    S.kids.forEach(function(k){
+      cells[k.id]=itemsFor(k.id, ds).filter(function(it){ return it.kind!=="home"; }).map(function(it){
+        any=true;
+        return { t: it.s ? (it.e ? short(it.s)+"–"+short(it.e) : short(it.s)) : "", title: it.kind==="lesson" ? "배드민턴" : it.title,
+          cxl: !!it.cancelled, chg: !!it.changed && !it.cancelled, les: it.kind==="lesson", ev: it.kind==="ev" };
+      });
+    });
+    var ad = withAd ? smsAdultLines(ds) : [];
+    if(range==="today" || dow>=1 && dow<=5 || any || ad.length) rows.push({ ds:ds, dow:dow, cells:cells, ad:ad });
+  });
+  return rows;
+}
+function sheetTitle(range, baseDay){
+  if(range==="today"){ var d=parseD(baseDay); return (d.getMonth()+1)+"월 "+d.getDate()+"일("+DOW[d.getDay()]+") 일정"; }
+  var mon=weekStart(baseDay), sun=addDays(mon,6), a=parseD(mon), b=parseD(sun);
+  return "이번 주 일정 "+(a.getMonth()+1)+"/"+a.getDate()+" – "+(b.getMonth()+1)+"/"+b.getDate();
+}
+function itemText(c){ return (c.t?c.t+" ":"")+c.title+(c.cxl?(c.les?" (빠짐)":" (휴강)"):(c.chg?" (변경)":"")); }
+
+/* 그림 그리기 */
+function drawSheet(range, baseDay, withAd){
+  var rows=sheetRows(range, baseDay, withAd), kids=S.kids;
+  var W=1080, P=44, C0=range==="today"?0:118, gap=14, FS=29, LH=42, ADF=24;
+  var cw=(W-P*2-C0-gap*(kids.length-1))/Math.max(1,kids.length);
+  var cv=document.createElement("canvas"), x=cv.getContext("2d");
+  var FONT='"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+  function fit(s, w, f){ x.font=f; if(x.measureText(s).width<=w) return s; while(s.length>1 && x.measureText(s+"…").width>w) s=s.slice(0,-1); return s+"…"; }
+  // 높이 계산
+  var H=P+60+40+24+56+12;
+  rows.forEach(function(r){ var n=Math.max(1, Math.max.apply(null, kids.map(function(k){ return r.cells[k.id].length; }))); r.h=n*LH+28+(r.ad.length?r.ad.length*34+10:0); H+=r.h+10; });
+  H+=50+P;
+  cv.width=W; cv.height=H;
+  x.fillStyle="#F6F4EF"; x.fillRect(0,0,W,H);
+  x.fillStyle="#22211E"; x.font="800 46px "+FONT; x.fillText(S.title||"가족 일정", P, P+46);
+  x.fillStyle="#0F6E56"; x.font="700 30px "+FONT; x.fillText(sheetTitle(range, baseDay), P, P+46+46);
+  var y=P+46+46+34;
+  // 머리줄 (아이 이름)
+  kids.forEach(function(k,i){ var cx=P+C0+i*(cw+gap); x.fillStyle=tlColor(k.color); x.beginPath(); x.roundRect? x.roundRect(cx,y,cw,48,12) : x.rect(cx,y,cw,48); x.fill();
+    x.fillStyle="#fff"; x.font="800 28px "+FONT; x.fillText(k.name, cx+18, y+34); });
+  y+=48+12;
+  var tod=todayStr();
+  rows.forEach(function(r){
+    x.fillStyle=r.ds===tod&&range!=="today"?"#E1F5EE":"#FFFFFF"; x.strokeStyle=r.ds===tod&&range!=="today"?"#0F6E56":"#DDD8CC"; x.lineWidth=2;
+    x.beginPath(); x.roundRect? x.roundRect(P,y,W-P*2,r.h,14) : x.rect(P,y,W-P*2,r.h); x.fill(); x.stroke();
+    if(C0){ var d=parseD(r.ds); x.fillStyle=r.dow===0?"#c0392b":(r.dow===6?"#2f6db5":"#22211E"); x.font="800 32px "+FONT; x.fillText(DOW[r.dow], P+20, y+46);
+      x.fillStyle="#6A675F"; x.font="500 22px "+FONT; x.fillText((d.getMonth()+1)+"/"+d.getDate(), P+20, y+76); }
+    kids.forEach(function(k,i){ var cx=P+C0+i*(cw+gap)+10, cy=y+14+LH-12, list=r.cells[k.id];
+      if(!list.length){ x.fillStyle="#B4B2A9"; x.font="500 "+FS+"px "+FONT; x.fillText("–", cx+8, cy); }
+      list.forEach(function(c){
+        var s=itemText(c), f=(c.les?"700 ":"500 ")+FS+"px "+FONT; s=fit(s, cw-24, f); x.font=f;
+        x.fillStyle=c.cxl?"#9A978F":(c.les?"#B45F06":(c.ev?"#D85A30":"#22211E")); x.fillText(s, cx+8, cy);
+        if(c.cxl){ var w=x.measureText(s).width; x.strokeStyle="#9A978F"; x.lineWidth=2; x.beginPath(); x.moveTo(cx+8,cy-10); x.lineTo(cx+8+w,cy-10); x.stroke(); }
+        cy+=LH; });
+    });
+    if(r.ad.length){ var ay=y+r.h-r.ad.length*34-6; x.fillStyle="#EEF4FB"; x.fillRect(P+C0+4, ay-6, W-P*2-C0-8, r.ad.length*34+4);
+      x.fillStyle="#185FA5"; x.font="600 "+ADF+"px "+FONT; r.ad.forEach(function(a,j){ x.fillText(fit(a, W-P*2-C0-40, "600 "+ADF+"px "+FONT), P+C0+16, ay+22+j*34); }); }
+    y+=r.h+10;
+  });
+  var n=new Date(); x.fillStyle="#8D8A82"; x.font="500 22px "+FONT;
+  x.fillText((S.lesson&&S.lesson.kids.length?"🏸 배드민턴은 "+(S.lesson.driver||"아빠")+" 픽업 · ":"")+(n.getMonth()+1)+"/"+n.getDate()+" "+pad(n.getHours())+":"+pad(n.getMinutes())+" 기준", P, y+34);
+  return cv;
+}
+function openShareSheet(range){
+  var st={ range: range||"today", ad: true };
+  var base=view.tab==="week" && view.weekBase ? view.weekBase : view.day;
+  var h='<h3>이미지로 공유</h3><div class="sub">가족 단톡방이나 사진 문자로 보내기 좋은 그림 한 장으로 만들어요.</div>'+
+    '<label class="f">언제 일정</label><div class="who" id="shr"><button class="chip" data-r="today">'+(view.day===todayStr()?"오늘":"이날")+'</button><button class="chip" data-r="week">이번 주</button></div>'+
+    '<label class="f">아빠·엄마 일정</label><div class="who" id="sha"><button class="chip" data-a="1">넣기</button><button class="chip" data-a="0">빼기</button></div>'+
+    '<div class="shprev"><img id="shimg" alt="공유할 일정 그림 미리보기"></div>'+
+    '<div class="stack"><button class="btn pri" id="shgo">공유하기</button><button class="btn" id="shsave">사진으로 저장</button><button class="btn ghost" data-close>닫기</button></div>';
+  openSheet(h, function(bg, close){
+    var cv=null;
+    function upd(){
+      each("#shr .chip",function(c){ c.classList.toggle("on", c.getAttribute("data-r")===st.range); }, bg);
+      each("#sha .chip",function(c){ c.classList.toggle("on", (c.getAttribute("data-a")==="1")===st.ad); }, bg);
+      cv=drawSheet(st.range, base, st.ad); bg.querySelector("#shimg").src=cv.toDataURL("image/png");
+    }
+    function fname(){ var d=parseD(st.range==="today"?base:weekStart(base)); return "가족일정_"+(st.range==="today"?"":"주간_")+(d.getMonth()+1)+"월"+d.getDate()+"일.png"; }
+    function save(){ var a=document.createElement("a"); a.href=cv.toDataURL("image/png"); a.download=fname(); document.body.appendChild(a); a.click(); a.remove(); toast("사진으로 저장했어요"); }
+    each("#shr .chip",function(c){ c.onclick=function(){ st.range=c.getAttribute("data-r"); upd(); }; }, bg);
+    each("#sha .chip",function(c){ c.onclick=function(){ st.ad=c.getAttribute("data-a")==="1"; upd(); }; }, bg);
+    bg.querySelector("#shsave").onclick=save;
+    bg.querySelector("#shgo").onclick=function(){
+      cv.toBlob(function(b){
+        var f=null; try{ f=new File([b], fname(), {type:"image/png"}); }catch(e){}
+        if(f && navigator.canShare && navigator.canShare({files:[f]})) navigator.share({files:[f], title:sheetTitle(st.range, base)}).catch(function(){});
+        else { save(); toast("이 기기는 바로 공유가 안 돼서 사진으로 저장했어요"); }
+      }, "image/png");
+    };
+    upd();
+  });
+}
+/* 인쇄 (이번 주 한 장) */
+function openPrint(baseDay){
+  var withAd=true, rows=sheetRows("week", baseDay, withAd), kids=S.kids;
+  var h='<div class="pv-bar"><button class="btn pri" id="pvgo">🖨 인쇄하기</button><button class="btn" id="pvad">아빠·엄마 일정 빼기</button><button class="btn" id="pvx">닫기</button><span class="small muted">PDF로 저장도 인쇄 화면에서 고를 수 있어요</span></div>';
+  function sheetHtml(withAd){
+    var rr=sheetRows("week", baseDay, withAd);
+    return '<div class="pv-page"><div class="pv-h"><b>'+esc(S.title||"가족 일정")+'</b><span>'+esc(sheetTitle("week", baseDay))+'</span></div>'+
+      '<table class="pv-t"><thead><tr><th class="pv-d"></th>'+kids.map(function(k){ return '<th style="background:'+esc(tlColor(k.color))+'">'+esc(k.name)+'</th>'; }).join("")+'</tr></thead><tbody>'+
+      rr.map(function(r){ var d=parseD(r.ds);
+        return '<tr'+(r.ds===todayStr()?' class="pv-today"':'')+'><th class="pv-d'+(r.dow===0?' sun':r.dow===6?' sat':'')+'">'+DOW[r.dow]+'<small>'+(d.getMonth()+1)+'/'+d.getDate()+'</small></th>'+
+          kids.map(function(k){ var l=r.cells[k.id]; return '<td>'+(l.length?l.map(function(c){ return '<div class="'+(c.cxl?'cx':c.les?'ls':c.ev?'ev':'')+'">'+esc(itemText(c))+'</div>'; }).join(""):'<div class="em">–</div>')+'</td>'; }).join("")+
+          '</tr>'+(r.ad.length?'<tr class="pv-ad"><th></th><td colspan="'+kids.length+'">'+r.ad.map(esc).join(" · ")+'</td></tr>':'');
+      }).join("")+'</tbody></table>'+
+      '<div class="pv-f">'+(S.lesson&&S.lesson.kids.length?'🏸 배드민턴은 '+esc(S.lesson.driver||"아빠")+' 픽업 · ':'')+'일정이 바뀌면 앱에서 확인하세요 · '+shortDate(todayStr())+' 인쇄</div></div>';
+  }
+  var box=document.createElement("div"); box.id="printv"; box.innerHTML=h+'<div id="pvbody">'+sheetHtml(withAd)+'</div>';
+  document.body.appendChild(box); document.body.classList.add("printing"); window.scrollTo(0,0);
+  function close(){ box.remove(); document.body.classList.remove("printing"); }
+  box.querySelector("#pvx").onclick=close;
+  box.querySelector("#pvgo").onclick=function(){ window.print(); };
+  box.querySelector("#pvad").onclick=function(){ withAd=!withAd; this.textContent=withAd?"아빠·엄마 일정 빼기":"아빠·엄마 일정 넣기"; box.querySelector("#pvbody").innerHTML=sheetHtml(withAd); };
+}
 var IS_IOS=/iPhone|iPad|iPod/i.test(navigator.userAgent);
 function openSmsSheet(range){
   var st={ who: S.kids[0] ? S.kids[0].id : "all", range: range||"today", ad: true };
@@ -1099,6 +1246,7 @@ function renderToday(){
     h+='<div class="addrow" style="grid-template-columns:repeat('+(ppl.length<=3?ppl.length:2)+',minmax(0,1fr))">'+ppl.map(function(k){ return '<button class="btn pri-k" data-addkid="'+esc(k.id)+'" style="--kc:'+esc(tlColor(k.color))+'">＋ '+esc(k.name)+' 일정</button>'; }).join("")+'</div>';
     h+='<div class="addrow sub" style="grid-template-columns:repeat('+(S.adults.length+1)+',minmax(0,1fr))">'+S.adults.map(function(k){ return '<button class="btn" data-addkid="'+esc(k.id)+'" style="--kc:'+esc(tlColor(k.color))+'">＋ '+esc(k.name)+'</button>'; }).join("")+'<button class="btn" id="addper">＋ 교육·출장</button></div>';
     h+='<button class="btn wide smsbtn" id="sms">✉️ 문자로 보내기</button>';
+    h+='<div class="addrow" style="grid-template-columns:1fr 1fr"><button class="btn" id="shimgb">🖼 이미지로 공유</button><button class="btn" id="prtb">🖨 이번 주 인쇄</button></div>';
     h+='<div class="note">일정을 누르면 이날만 시간 변경·휴강 처리를 할 수 있어요.</div>';
   }
 
@@ -1116,6 +1264,8 @@ function renderToday(){
   var t=$("tod"); if(t) t.onclick=function(){ view.day=todayStr(); render(); };
   $("addev").onclick=function(){ openNewEventSheet(ds, "all"); };
   var sb=$("sms"); if(sb) sb.onclick=function(){ openSmsSheet("today"); };
+  var ib=$("shimgb"); if(ib) ib.onclick=function(){ openShareSheet("today"); };
+  var pb=$("prtb"); if(pb) pb.onclick=function(){ openPrint(view.day); };
   var ap=$("addper"); if(ap) ap.onclick=function(){ openPeriodSheet(null, ds); };
   bindPbands(ds);
   each("[data-kind][data-kid]",function(el){
@@ -1169,12 +1319,15 @@ function renderWeek(){
     h+='</div>';
   }
   h+='<button class="btn wide smsbtn" id="wsms">✉️ 이번 주 일정 문자로 보내기</button>';
+  h+='<div class="addrow" style="grid-template-columns:1fr 1fr"><button class="btn" id="wimg">🖼 이미지로 공유</button><button class="btn" id="wprt">🖨 인쇄</button></div>';
   h+='<div class="note">요일을 누르면 그날 화면으로 가서 바꿀 수 있어요.</div>';
   $("app").innerHTML=h;
   $("wprev").onclick=function(){ view.weekBase=addDays(base,-7); render(); };
   $("wnext").onclick=function(){ view.weekBase=addDays(base,7); render(); };
   var wt=$("wtod"); if(wt) wt.onclick=function(){ view.weekBase=null; render(); };
   $("wsms").onclick=function(){ openSmsSheet("week"); };
+  $("wimg").onclick=function(){ openShareSheet("week"); };
+  $("wprt").onclick=function(){ openPrint(base); };
   bindAdtog();
   each(".wday",function(el){ el.style.cursor="pointer"; el.onclick=function(){ view.day=el.getAttribute("data-day"); view.tab="today"; render(); }; });
 }
