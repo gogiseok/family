@@ -231,6 +231,24 @@ body.has-photo .note{color:var(--ink)}
 .instbar{display:flex;align-items:center;gap:8px;background:var(--accent-bg);border:1px solid var(--accent);border-radius:12px;padding:8px 8px 8px 12px;margin-bottom:10px;font-size:14px;font-weight:700;color:var(--accent)}
 .instbar span{flex:1;min-width:0}.instbar .btn{margin:0;width:auto;padding:7px 14px;flex:none}.instbar .iconbtn{flex:none;width:34px;height:34px}
 .inststeps{margin:12px 0 6px;padding-left:22px;font-size:16px;line-height:1.7}.inststeps li{margin-bottom:4px}
+.dietcard{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;width:100%;text-align:left;background:#FFF8EC;border:1px solid #EFD39A;border-radius:12px;padding:9px 12px;margin-bottom:10px;color:var(--ink);font-size:14px}
+.dietcard .dc-l{font-weight:800}.dietcard .dc-l small{font-weight:600;color:var(--warn)}.dietcard .dc-n{flex:1 1 200px;min-width:0;color:var(--ink2)}.dietcard .dc-n b{color:var(--ink)}.dietcard .dc-go{margin-left:auto;font-weight:700;color:var(--warn)}
+body.has-photo .dietcard{background:color-mix(in srgb,#FFF8EC 90%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.dh{background:#0F6E56;color:#fff;border-radius:16px;padding:14px 16px;margin-bottom:10px}.dh b{display:block;font-size:19px}.dh span{font-size:12.5px;opacity:.9}
+.dchips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:8px}.dchips .chip{flex:none}.dchips .chip i{font-style:normal;font-size:11px;color:var(--accent);font-weight:800}.dchips .chip.on i{color:inherit}
+.dchips .chip.off{border-color:#E0A23A}
+.btn.doff{margin:0 0 8px;font-size:14px}.btn.doff.on{background:#FFF1D6;border-color:#E0A23A;color:#7A4A06;font-weight:700}
+.dwarn{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;margin-bottom:8px}
+.dday-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}.dday-h b{font-size:17px}
+.dtag{font-size:12px;font-weight:700;background:var(--card2);border-radius:999px;padding:2px 10px;color:var(--ink2)}
+.ditem{display:grid;grid-template-columns:30px 58px 1fr;gap:6px;align-items:start;padding:9px 6px;border-bottom:1px dashed var(--line);border-radius:8px}
+.ditem:last-of-type{border-bottom:0}.ditem[data-di]{cursor:pointer}
+.ditem .di-i{font-size:20px;line-height:1.2}.ditem .di-t{font-weight:700;color:var(--ink2);font-variant-numeric:tabular-nums;font-size:14px;padding-top:2px}
+.ditem .di-x{font-size:15px;line-height:1.45;min-width:0}.ditem .di-x small{display:block;color:var(--ink3);font-size:12.5px}
+.ditem.h-fast{background:#FFF6E6}.ditem.h-ex{background:#EAF3FC}.ditem.h-prep{background:#FFF6E6}
+.drules{display:grid;grid-template-columns:1fr;gap:6px;margin:10px 0}.drules>div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 12px}.drules b{display:block;font-size:14px}.drules span{font-size:13px;color:var(--ink2)}
+.dshop{display:grid;grid-template-columns:76px 1fr;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:14px}.dshop:last-child{border-bottom:0}
+.dnote b{display:block;margin-bottom:4px}.dnote div{font-size:14px;color:var(--ink2);line-height:1.55}
 .nextup{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px;margin-bottom:10px;display:flex;flex-direction:column;gap:6px}
 .nu-row{display:flex;align-items:baseline;gap:10px;min-width:0}
 .nu-name{flex:none;display:flex;align-items:center;gap:6px;font-weight:800;font-size:15px;min-width:52px}
@@ -362,6 +380,100 @@ function applySeed(o){
   SEED_PERIODS.forEach(function(p){ if(!o.periods.some(function(q){ return q.who===p.who && q.title===p.title && q.start===p.start; })) o.periods.push({id:uid(), who:p.who, title:p.title, start:p.start, end:p.end, weekend:!!p.weekend, skip:[]}); });
   o.seeds[SEED_KEY]=1; seedAdded=true;
 }
+/* ---------- 내 식단 ---------- */
+var DIET_SEED={"title":"기석의 배드민턴 주간 식단","sub":"월·수·금 19~20시 레슨 · 휴무일 10~13시 클럽 고강도 · 맞벌이 간편 버전","rules":[{"i":"☕","t":"단식일 = 월·금","d":"점심 전까지 원두커피만 (최대 2잔)"},{"i":"🔄","t":"휴무일엔 단식 금지","d":"월·금에 걸리면 단식은 수요일로"},{"i":"🍠","t":"일요일 10분 준비","d":"고구마 굽기 · 달걀 삶기"}],"days":{"1":{"tag":"레슨·단식","items":[{"t":"~12시","i":"☕","m":"공복","x":"원두커피 1~2잔 + 물","h":"fast"},{"t":"12:00","i":"🍱","m":"구내식당","x":"고기·생선 반찬 두 번","a":"부실하면 편의점 닭가슴살"},{"t":"17:30","i":"🍌","x":"바나나 + 그릭요거트","a":"삼각김밥·찰떡"},{"t":"19~20","i":"🏸","m":"레슨","x":"물 500ml 이상","h":"ex"},{"t":"20:40","i":"🐟","x":"현미밥⅔ + 고등어구이 + 두부부침","a":"즉석밥 + 냉동 순살고등어"}]},"2":{"tag":"일반","items":[{"t":"07:30","i":"🍳","x":"밥 + 달걀프라이 2 + 김","a":"즉석밥 + 구운계란"},{"t":"12:00","i":"🍱","m":"구내식당","x":"국물보다 건더기"},{"t":"15:30","i":"🍎","x":"사과·귤 + 견과류","a":"하루견과"},{"t":"19:00","i":"🥣","x":"소고기 미역국 + 시금치나물","a":"레토르트 미역국 + 불고기 밀키트"}]},"3":{"tag":"레슨","items":[{"t":"07:30","i":"🥚","x":"밥 + 전날 국 + 달걀","a":"누룽지 + 삶은 달걀"},{"t":"12:00","i":"🍱","m":"구내식당","x":"든든하게"},{"t":"17:30","i":"🍠","x":"군고구마 + 우유","a":"바나나 + 두유"},{"t":"19~20","i":"🏸","m":"레슨","x":"물 500ml 이상","h":"ex"},{"t":"20:40","i":"🍗","x":"닭다리살 구이 + 쌈채소","a":"닭가슴살 스테이크 + 샐러드팩"}]},"4":{"tag":"일반","items":[{"t":"07:30","i":"🍚","x":"밥 + 두부부침 + 김치","a":"즉석밥 + 참치캔"},{"t":"12:00","i":"🍱","m":"구내식당","x":"튀김 반찬은 한두 점"},{"t":"15:30","i":"🫐","x":"그릭요거트 + 블루베리"},{"t":"19:00","i":"🥬","x":"제육볶음 + 쌈 + 된장국","a":"제육 밀키트 + 즉석 된장국"}]},"5":{"tag":"레슨·단식","items":[{"t":"~12시","i":"☕","m":"공복","x":"원두커피 1~2잔 + 물","h":"fast"},{"t":"12:00","i":"🍱","m":"구내식당","x":"고기·생선 넉넉히"},{"t":"17:30","i":"🍡","x":"찰떡·백설기 + 두유","a":"삼각김밥"},{"t":"19~20","i":"🏸","m":"레슨","x":"물 500ml 이상","h":"ex"},{"t":"20:40","i":"🍣","x":"연어구이 + 밥 + 채소","a":"순두부찌개 밀키트 + 달걀"}]},"6":{"tag":"주말","items":[{"t":"09:00","i":"🍳","x":"달걀 채소볶음밥","a":"냉동 볶음밥 + 달걀"},{"t":"13:00","i":"🍲","m":"가족 외식","x":"비빔밥·생선구이·샤브샤브"},{"t":"16:00","i":"🍊","x":"제철 과일"},{"t":"18:30","i":"🐔","x":"닭백숙·삼계탕","a":"레토르트 삼계탕"}]},"0":{"tag":"주말·준비","items":[{"t":"10:30","i":"🍠","m":"아점","x":"고구마 + 달걀 + 과일 + 우유","a":"김밥 + 두유"},{"t":"15:00","i":"🥜","x":"견과류 + 요거트"},{"t":"18:30","i":"🥩","x":"소고기 구이 + 버섯 + 쌈","a":"불고기 밀키트"},{"t":"식후","i":"🧺","m":"10분 준비","x":"고구마 굽기 · 달걀 삶기","h":"prep"}]},"off":{"tag":"클럽 고강도 3시간","items":[{"t":"07:30","i":"🍚","m":"아침 필수","x":"밥 1공기 + 달걀 2 + 바나나","a":"즉석밥 + 구운계란 + 바나나"},{"t":"09:00","i":"☕","x":"아메리카노 1잔 (식후 1시간 뒤)"},{"t":"10~13","i":"🏸","m":"운동","x":"물 + 이온음료, 11:30 바나나·에너지바","h":"ex"},{"t":"13:15","i":"🐟","m":"바로 점심","x":"생선구이 정식·불고기 덮밥·비빔밥","a":"편의점 닭가슴살 + 삼각김밥 2 + 우유"},{"t":"16:00","i":"🥣","x":"그릭요거트 + 견과류"},{"t":"19:00","i":"😴","x":"된장찌개 + 생선·두부 → 일찍 자기"}]}},"shop":[{"k":"냉동","i":"🧊","x":"순살고등어·연어, 닭가슴살, 볶음밥"},{"k":"실온","i":"📦","x":"즉석밥, 레토르트 국, 참치캔, 김, 하루견과, 에너지바, 이온음료"},{"k":"냉장","i":"🥛","x":"달걀, 그릭요거트, 우유·두유, 두부, 쌈채소"},{"k":"기타","i":"🍌","x":"바나나, 제철 과일, 고구마, 밀키트(불고기·제육·순두부)"}],"notes":[{"i":"🛡️","t":"염증·구내염 관리","d":"늘리기: 생선·달걀·살코기·녹색채소·과일\n줄이기: 튀김·가공육·단 음료·술·야식"},{"i":"💧","t":"운동 공식","d":"2~3시간 전 식사 → 1시간 전 간식\n운동 중 수분 → 끝나고 1시간 안 단백질+탄수화물"}]};
+var DIET_OWNERS=["ae6c3b0d455fb9d3d9a43ef3b6b024138b26a45431a4018f0801fb4b62e7fa2a","1267ed476ed3b23a8dab24197c077c20ff2dbb5188d7bbd62864f36e8d26aa74"];
+var ME_HASH=null, meHashFor=null;
+function ensureMe(){
+  var em=((cloud.user&&cloud.user.email)||"").toLowerCase();
+  if(!em || meHashFor===em) return;
+  meHashFor=em;
+  try{ crypto.subtle.digest("SHA-256", new TextEncoder().encode(em)).then(function(b){
+    ME_HASH=Array.prototype.map.call(new Uint8Array(b),function(x){ return ("0"+x.toString(16)).slice(-2); }).join(""); if(S) render(true); }); }catch(e){}
+}
+function applyDietSeed(o){
+  o.seeds=o.seeds||{};
+  if(o.seeds.diet1) return;
+  if(!o.diet) o.diet=JSON.parse(JSON.stringify(DIET_SEED));
+  o.diet.owners=o.diet.owners||DIET_OWNERS.slice(); if(o.diet.share==null) o.diet.share=false; o.diet.off=o.diet.off||{};
+  o.seeds.diet1=1; seedAdded=true;
+}
+function dietMine(){ return !!(S && S.diet && ME_HASH && (S.diet.owners||[]).indexOf(ME_HASH)>=0); }
+function dietVisible(){ return !!(S && S.diet && (S.diet.share || dietMine())); }
+function dietKeyFor(ds){ return (S.diet.off||{})[ds] ? "off" : String(parseD(ds).getDay()); }
+function dietStart(t){ var m=String(t).match(/(\d{1,2}):(\d{2})/); if(m) return (+m[1])*60+(+m[2]); m=String(t).match(/^~\s*(\d{1,2})/); if(m) return 0; m=String(t).match(/^(\d{1,2})\s*~/); if(m) return (+m[1])*60; return null; }
+function dietEnd(t){ var m=String(t).match(/~\s*(\d{1,2})(?::(\d{2}))?/); return m ? (+m[1])*60+(+(m[2]||0)) : null; }
+function dietNow(ds, nm){
+  var items=(S.diet.days[dietKeyFor(ds)]||{}).items||[], cur=null, nx=null;
+  items.forEach(function(it){ var s=dietStart(it.t), e=dietEnd(it.t); if(s==null) return;
+    if(e!=null && s<=nm && nm<e) cur=cur||it; else if(s>nm && !nx) nx=it; });
+  return { cur:cur, nx:nx };
+}
+function dietCardHtml(ds, isToday){
+  if(!dietVisible()) return "";
+  var k=dietKeyFor(ds), day=S.diet.days[k]||{}, d=parseD(ds), lbl=k==="off"?"휴무일":DOW[d.getDay()];
+  var line="";
+  if(isToday){ var n=dietNow(ds, nowMin());
+    if(n.cur) line='<b>지금 '+esc(n.cur.m||n.cur.x)+'</b> '+esc(n.cur.m?n.cur.x:"");
+    else if(n.nx) line='다음 <b>'+esc(n.nx.t)+' '+esc(n.nx.m?n.nx.m+" ":"")+'</b>'+esc(n.nx.x);
+    else line='오늘 식단 끝 · 일찍 쉬기';
+  }
+  return '<button class="dietcard" id="dietopen"><span class="dc-l">🍽 '+(isToday?'오늘':'이날')+' 식단 <small>'+esc(lbl)+(day.tag?' · '+esc(day.tag):'')+'</small></span>'+(line?'<span class="dc-n">'+line+'</span>':'')+'<span class="dc-go">열기 ›</span></button>';
+}
+function renderDiet(){
+  var D=S.diet; if(!D || !dietVisible()){ view.tab="today"; renderToday(); return; }
+  var tod=todayStr(), mine=dietMine();
+  if(view.dietDay==null) view.dietDay=dietKeyFor(tod);
+  var k=view.dietDay, day=D.days[k]||{items:[]}, todayKey=String(parseD(tod).getDay()), isOffToday=!!(D.off||{})[tod];
+  var order=["1","2","3","4","5","6","0","off"];
+  var h='<header class="top"><h1>🍽 내 식단</h1><button class="iconbtn" id="back" aria-label="닫기">✕</button></header>';
+  h+='<div class="dh"><b>'+esc(D.title||"내 식단")+'</b>'+(D.sub?'<span>'+esc(D.sub)+'</span>':'')+'</div>';
+  h+='<div class="dchips">'+order.map(function(x){ var lb=x==="off"?"휴무일":DOW[+x], on=x===k, td=(x===todayKey&&!isOffToday)||(x==="off"&&isOffToday);
+    return '<button class="chip'+(on?' on':'')+(x==="off"?' off':'')+'" data-dd="'+x+'">'+lb+(td?' <i>오늘</i>':'')+'</button>'; }).join("")+'</div>';
+  if(mine) h+='<button class="btn wide doff'+(isOffToday?' on':'')+'" id="doff">'+(isOffToday?'✓ 오늘은 휴무일 식단 (누르면 원래대로)':'🏆 오늘은 휴무일로 바꾸기 (클럽 운동하는 날)')+'</button>';
+  if(isOffToday && (todayKey==="1"||todayKey==="5")) h+='<div class="dwarn">휴무일엔 단식 금지 — 이번 주 단식은 수요일로 옮기세요</div>';
+  h+='<div class="card dday"><div class="dday-h"><b>'+(k==="off"?"🏆 휴무일":DOW[+k]+"요일")+'</b>'+(day.tag?'<span class="dtag">'+esc(day.tag)+'</span>':'')+'</div>';
+  h+=(day.items||[]).map(function(it,i){
+    return '<div class="ditem'+(it.h?' h-'+it.h:'')+'"'+(mine?' data-di="'+i+'" role="button" tabindex="0"':'')+'><span class="di-i">'+esc(it.i||"•")+'</span><span class="di-t">'+esc(it.t)+'</span><span class="di-x">'+(it.m?'<b>'+esc(it.m)+'</b> ':'')+esc(it.x)+(it.a?'<small>↳ '+esc(it.a)+'</small>':'')+'</span></div>';
+  }).join("")||'<div class="note">아직 넣은 식단이 없어요.</div>';
+  if(mine) h+='<button class="btn wide" id="dadd" style="margin-top:8px">＋ 이 요일에 추가</button>';
+  h+='</div>';
+  h+='<div class="drules">'+(D.rules||[]).map(function(r){ return '<div><b>'+esc(r.i)+' '+esc(r.t)+'</b><span>'+esc(r.d)+'</span></div>'; }).join("")+'</div>';
+  if((D.shop||[]).length) h+='<div class="card"><div class="dday-h"><b>🛒 상비 장보기</b></div>'+D.shop.map(function(s){ return '<div class="dshop"><span>'+esc(s.i)+' <b>'+esc(s.k)+'</b></span><span>'+esc(s.x)+'</span></div>'; }).join("")+'</div>';
+  h+=(D.notes||[]).map(function(n){ return '<div class="card dnote"><b>'+esc(n.i)+' '+esc(n.t)+'</b><div>'+esc(n.d).replace(/\n/g,"<br>")+'</div></div>'; }).join("");
+  if(mine) h+='<details class="set"><summary>보이는 사람</summary><div class="who" id="dshare" style="margin-top:8px"><button class="chip" data-s="0">나만</button><button class="chip" data-s="1">가족 모두</button></div><div class="note">"나만"이면 기석님 계정으로 열 때만 오늘 화면에 식단이 보여요.</div></details>';
+  $("app").innerHTML=h;
+  $("back").onclick=function(){ view.tab="today"; view.dietDay=null; render(); };
+  each("[data-dd]",function(b){ b.onclick=function(){ view.dietDay=b.getAttribute("data-dd"); render(true); }; });
+  var off=$("doff"); if(off) off.onclick=function(){ D.off=D.off||{}; if(D.off[tod]) delete D.off[tod]; else D.off[tod]=1;
+    Object.keys(D.off).forEach(function(x){ if(x<addDays(tod,-14)) delete D.off[x]; });
+    view.dietDay=dietKeyFor(tod); save(); render(true); toast(D.off[tod]?"오늘은 휴무일 식단으로 바꿨어요":"원래 요일 식단으로 돌렸어요"); };
+  each("[data-di]",function(el){ var fn=function(){ openDietItem(k, +el.getAttribute("data-di")); }; el.onclick=fn; el.onkeydown=function(e){ if(e.key==="Enter") fn(); }; });
+  var ad=$("dadd"); if(ad) ad.onclick=function(){ openDietItem(k, -1); };
+  each("#dshare .chip",function(c){ c.classList.toggle("on", (c.getAttribute("data-s")==="1")===!!D.share); c.onclick=function(){ D.share=c.getAttribute("data-s")==="1"; save(); render(true); }; });
+}
+function openDietItem(k, idx){
+  var D=S.diet; D.days[k]=D.days[k]||{items:[]}; var list=D.days[k].items, it=idx>=0?list[idx]:{t:"",i:"🍽",m:"",x:"",a:""};
+  var h='<h3>'+(idx>=0?'식단 고치기':'식단 추가')+'</h3>'+
+    '<label class="f" for="dt">시간</label><input id="dt" value="'+esc(it.t)+'" placeholder="예: 12:00, ~12시, 19~20">'+
+    '<label class="f" for="dm">이름표 (선택)</label><input id="dm" value="'+esc(it.m||"")+'" placeholder="예: 구내식당, 공복, 레슨">'+
+    '<label class="f" for="dx">먹을 것</label><input id="dx" value="'+esc(it.x)+'" placeholder="예: 바나나 + 그릭요거트">'+
+    '<label class="f" for="da">대신 먹을 것 (선택)</label><input id="da" value="'+esc(it.a||"")+'" placeholder="예: 삼각김밥·찰떡">'+
+    '<label class="f" for="di">그림 (이모지)</label><input id="di" value="'+esc(it.i||"")+'" maxlength="4" style="width:80px">'+
+    '<div class="err"></div><div class="stack"><button class="btn pri" id="dsv">저장</button>'+(idx>=0?'<button class="btn danger" id="ddel">삭제</button>':'')+'<button class="btn ghost" data-close>취소</button></div>';
+  openSheet(h, function(bg, close){
+    bg.querySelector("#dsv").onclick=function(){
+      var n={ t:bg.querySelector("#dt").value.trim(), m:bg.querySelector("#dm").value.trim(), x:bg.querySelector("#dx").value.trim(), a:bg.querySelector("#da").value.trim(), i:bg.querySelector("#di").value.trim()||"🍽", h:it.h||"" };
+      if(!n.x){ bg.querySelector(".err").textContent="먹을 것을 적어 주세요."; return; }
+      if(!n.m) delete n.m; if(!n.a) delete n.a; if(!n.h) delete n.h;
+      if(idx>=0) list[idx]=n; else list.push(n);
+      list.sort(function(a,b){ var x=dietStart(a.t), y=dietStart(b.t); return (x==null?9999:x)-(y==null?9999:y); });
+      save(); close(); render(true); toast("저장했어요");
+    };
+    var dl=bg.querySelector("#ddel"); if(dl) dl.onclick=function(){ list.splice(idx,1); save(); close(); render(true); toast("지웠어요"); };
+  });
+}
+
 function normalize(o){
   var b=blank();
   if(!o || !Array.isArray(o.kids)) throw new Error("bad");
@@ -378,6 +490,7 @@ function normalize(o){
   if(!o.workInit){ o.workInit=true; if(!o.fixed["아빠"]){ o.fixed["아빠"]={}; [1,2,3,4,5].forEach(function(d){ o.fixed["아빠"][d]=[{id:"w"+d, s:"09:00", e:"18:00", title:"근무", work:true}]; }); } }
   o.periods.forEach(function(p){ if(!p.id) p.id=uid(); if(!Array.isArray(p.skip)) p.skip=[]; });
   applySeed(o);
+  applyDietSeed(o);
   // 고정 일정에 id가 없으면 붙여줌
   Object.keys(o.fixed).forEach(function(k){ Object.keys(o.fixed[k]).forEach(function(d){ (o.fixed[k][d]||[]).forEach(function(it){ if(!it.id) it.id=uid(); if(it.e==null) it.e=""; }); }); });
   o.events.forEach(function(ev){ if(!ev.id) ev.id=uid(); });
@@ -470,7 +583,7 @@ function startCloud(){
 }
 setInterval(function(){ if(cloud.pending && !isBusy()) applyJson(cloud.pending); }, 1500);
 
-var APP_VER="10/16-2";
+var APP_VER="11/13-1";
 var UI_KEY="familySchedule.ui";
 var UI={adults:false, per:true}; try{ var _u=JSON.parse(localStorage.getItem(UI_KEY)||"null"); if(_u){ UI.adults=!!_u.adults; if(_u.per!=null) UI.per=!!_u.per; } }catch(e){}
 function saveUI(){ try{ localStorage.setItem(UI_KEY, JSON.stringify(UI)); }catch(e){} }
@@ -642,6 +755,7 @@ function renderDenied(){
 function render(keepScroll){
   if(cloud.status==="out"){ renderLogin(); return; }
   if(cloud.status==="denied"){ renderDenied(); return; }
+  ensureMe();
   if(!S && (cloud.status==="loading")){ gateScreen("불러오는 중…", "잠시만 기다려 주세요."); return; }
   if(!S && (cloud.status==="noload"||cloud.status==="error")){ gateScreen("연결하지 못했어요", "인터넷 연결을 확인하고 다시 열어 주세요.", '<button class="btn wide" id="retry">다시 시도</button>'); $("retry").onclick=function(){ location.reload(); }; return; }
   if(!S){ renderSetup(); return; }
@@ -649,7 +763,7 @@ function render(keepScroll){
   document.title=S.title;
   var tabs=$("tabs"); tabs.classList.remove("hide");
   each("#tabs button",function(b){ b.classList.toggle("on", b.getAttribute("data-tab")===view.tab); });
-  ({today:renderToday, week:renderWeek, month:renderMonth, lesson:renderMonth, events:renderEvents, settings:renderSettings}[view.tab]||renderToday)();
+  ({today:renderToday, week:renderWeek, month:renderMonth, lesson:renderMonth, events:renderEvents, settings:renderSettings, diet:renderDiet}[view.tab]||renderToday)();
   bindHeader();
   window.scrollTo(0, keepScroll?sy:0);
   if(pendingAdd) setTimeout(tryPendingAdd, 50);
@@ -1225,6 +1339,7 @@ function renderToday(){
   var nm = isToday ? nowMin() : null;
   if(isToday) h+=installBannerHtml();
   if(isToday && S.kids.length) h+=nextUpHtml(ds, nm);
+  h+=dietCardHtml(ds, isToday);
   if(isLessonDay(ds)){
     var on=lessonKidsOn(ds), lt=lessonTimes(ds);
     if(on.length){
@@ -1282,6 +1397,7 @@ function renderToday(){
   each("[data-addkid]",function(b){ b.onclick=function(){ openNewEventSheet(ds, b.getAttribute("data-addkid")); }; });
   bindAdtog();
   bindInstallBanner();
+  var dop=$("dietopen"); if(dop) dop.onclick=function(){ view.tab="diet"; view.dietDay=null; render(); };
   var ln=$("lesnudge"); if(ln) ln.onclick=function(){ view.mMonth=ln.getAttribute("data-ym"); view.mSel=null; view.mLes=true; view.tab="month"; render(); };
   bindEvRows();
 }
